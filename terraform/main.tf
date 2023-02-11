@@ -68,10 +68,18 @@ locals {
 }
 
 provider "snowflake" {
-  role = "SECURITYADMIN"
+  alias = "sys_admin"
+  role  = "SYSADMIN"
+}
+
+provider "snowflake" {
+  alias = "security_admin"
+  role  = "SECURITYADMIN"
 }
 
 resource "snowflake_warehouse" "cdp" {
+  provider = snowflake.sys_admin
+
   name           = "CDP-DEV"
   warehouse_size = "X-Small"
   # Auto suspend after seconds of inactivity, since this is a prototype, keep the value low to save $
@@ -79,10 +87,13 @@ resource "snowflake_warehouse" "cdp" {
 }
 
 resource "snowflake_database" "cdp" {
+  provider = snowflake.sys_admin
+
   name = "CDP-DEV"
 }
 
 resource "snowflake_schema" "schemas" {
+  provider = snowflake.sys_admin
   for_each = local.schemas
 
   name     = each.key
@@ -90,42 +101,42 @@ resource "snowflake_schema" "schemas" {
   comment  = each.value.comment
 }
 
-resource "snowflake_role" "role" {
+resource "snowflake_role" "roles" {
+  provider = snowflake.security_admin
   for_each = local.roles
 
   name    = each.key
   comment = each.value.comment
 }
 
-resource "snowflake_role_grants" "roles" {
-  for_each = local.roles
-
-  role_name = each.key
-  users     = each.value.users
-  roles     = []
-}
-
 resource "snowflake_schema_grant" "usage_roles" {
-  for_each = local.schemas
+  provider = snowflake.security_admin
+  # Explicit depends_on because we are using string to reference schemas and role.
+  depends_on = [snowflake_schema.schemas, snowflake_role.roles]
+  for_each   = local.schemas
 
-  schema_name   = each.key
-  database_name = snowflake_database.cdp.name
-  privilege     = "USAGE"
-  roles         = each.value.usage_roles
-  shares        = []
+  database_name     = snowflake_database.cdp.name
+  schema_name       = each.key
+  privilege         = "USAGE"
+  roles             = each.value.usage_roles
+  with_grant_option = false
 }
 
 resource "snowflake_schema_grant" "modify_roles" {
-  for_each = local.schemas
+  provider = snowflake.security_admin
+  # Explicit depends_on because we are using string to reference schemas and role.
+  depends_on = [snowflake_schema.schemas, snowflake_role.roles]
+  for_each   = local.schemas
 
-  schema_name   = each.key
-  database_name = snowflake_database.cdp.name
-  privilege     = "MODIFY"
-  roles         = each.value.modify_roles
-  shares        = []
+  database_name     = snowflake_database.cdp.name
+  schema_name       = each.key
+  privilege         = "MODIFY"
+  roles             = each.value.modify_roles
+  with_grant_option = false
 }
 
-resource "snowflake_user" "user" {
+resource "snowflake_user" "users" {
+  provider = snowflake.security_admin
   for_each = local.users
 
   name                 = each.key
@@ -135,4 +146,14 @@ resource "snowflake_user" "user" {
   default_namespace    = "${snowflake_database.cdp.name}.PUBLIC"
   default_warehouse    = each.value.warehouse
   must_change_password = false
+}
+
+resource "snowflake_role_grants" "roles" {
+  provider = snowflake.security_admin
+  # Explicit depends_on because we are using string to reference users.
+  depends_on = [snowflake_user.users]
+  for_each   = local.roles
+
+  role_name = each.key
+  users     = each.value.users
 }
