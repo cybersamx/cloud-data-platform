@@ -4,12 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -24,8 +27,8 @@ const (
 	region       = "us-east-1"
 )
 
-type s3ListHandler func(sess *session.Session, obj *s3.Object, cfg s3Config) error
-type s3ParseObjectHandler func(reader io.Reader, lineCap int) error
+type s3ListFunc func(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error
+type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, lineCap int) error
 
 type s3Config struct {
 	bucket  string
@@ -33,6 +36,16 @@ type s3Config struct {
 	region  string
 	fileCap int
 	lineCap int
+}
+
+type trip struct {
+	TripDuration     *int
+	StartTime        *time.Time
+	EndTime          *time.Time
+	StartStationID   *int
+	StartStationName *string
+	StartStationLat  *float32
+	StartStationLong *float32
 }
 
 // --- Helper Functions ---
@@ -46,7 +59,7 @@ func isS3Dir(obj *s3.Object) bool {
 	return parts[len(parts)-1] == ""
 }
 
-func listS3Bucket(cfg s3Config, handler s3ListHandler) error {
+func listS3Bucket(cfg s3Config, db *sql.DB, handler s3ListFunc) error {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.region),
 	})
@@ -84,7 +97,7 @@ func listS3Bucket(cfg s3Config, handler s3ListHandler) error {
 			continue
 		}
 
-		if err := handler(sess, obj, cfg); err != nil {
+		if err := handler(sess, obj, cfg, db); err != nil {
 			return err
 		}
 	}
@@ -92,7 +105,7 @@ func listS3Bucket(cfg s3Config, handler s3ListHandler) error {
 	return nil
 }
 
-func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, handler s3ParseObjectHandler) error {
+func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB, handler s3ParseObjectFunc) error {
 	log.Printf("Extracting file %s of size %d from s3\n", *obj.Key, *obj.Size)
 
 	downloader := s3manager.NewDownloader(sess)
@@ -114,7 +127,7 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, handl
 
 	if handler != nil {
 		reader := bytes.NewReader(buf)
-		if err := handler(reader, cfg.lineCap); err != nil {
+		if err := handler(reader, db, cfg.lineCap); err != nil {
 			return err
 		}
 	}
@@ -124,8 +137,8 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, handl
 
 // --- Application Specific Functions ---
 
-func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config) (rerr error) {
-	handler := func(reader io.Reader, lineCap int) error {
+func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) (rerr error) {
+	parseHandler := func(reader io.Reader, db *sql.DB, lineCap int) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
@@ -153,9 +166,9 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config) (rer
 				return ungzip.Err()
 			}
 
-			var dict map[string]any
+			var record map[string]any
 			var syntaxErr *json.SyntaxError
-			err := json.Unmarshal(line, &dict)
+			err := json.Unmarshal(line, &record)
 			switch {
 			case errors.As(err, &syntaxErr):
 				log.Printf("Can't parse string to json; err=%v", err)
@@ -165,16 +178,104 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config) (rer
 				return err
 			}
 
-			fmt.Println(dict)
+			log.Println("Inserting:", record)
+
+			stmt := stmtBuilder().
+				Insert("riders").
+				Columns("json").
+				Values(string(line))
+
+			query, args, err := stmt.ToSql()
+			if err != nil {
+				return err
+			}
+
+			_, err = db.Exec(query, args...)
+			if err != nil {
+				return err
+			}
 		}
 
 		return nil
 	}
 
-	return downloadS3Object(sess, obj, cfg, handler)
+	return downloadS3Object(sess, obj, cfg, db, parseHandler)
 }
 
-func riderDataFromS3() error {
+func downloadTripData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) (rerr error) {
+	parseHandler := func(reader io.Reader, db *sql.DB, lineCap int) error {
+		gzReader, err := gzip.NewReader(reader)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			rerr = gzReader.Close()
+		}()
+
+		// Read the decompressed content line by line.
+		ungzip := bufio.NewScanner(gzReader)
+		buf := make([]byte, 0, bufio.MaxScanTokenSize)
+		ungzip.Buffer(buf, bufio.MaxScanTokenSize*4)
+
+		n := 0
+		for ungzip.Scan() {
+			if n >= lineCap {
+				return nil
+			}
+
+			n++
+
+			line := ungzip.Bytes()
+			if ungzip.Err() != nil {
+				return ungzip.Err()
+			}
+
+			lineReader := bytes.NewReader(line)
+			csvReader := csv.NewReader(lineReader)
+			csvReader.FieldsPerRecord = 16
+			record, err := csvReader.Read()
+			switch {
+			case err == io.EOF:
+				continue
+			case err != nil:
+				return err
+			}
+
+			log.Println("Inserting:", record)
+
+			stmt := stmtBuilder().
+				Insert("trips").
+				Columns(
+					"trip_duration", "start_time", "stop_time",
+					"start_station_id", "start_station_name", "start_station_latitude", "start_station_longitude",
+					"end_station_id", "end_station_name", "end_station_latitude", "end_station_longitude",
+					"bike_id", "membership_type", "usertype", "birth_year", "gender",
+				).
+				Values(
+					record[0], record[1], record[2],
+					record[3], record[4], record[5], record[6],
+					record[7], record[8], record[9], record[10],
+					record[11], record[12], record[13], record[14], record[15],
+				)
+
+			query, args, err := stmt.ToSql()
+			if err != nil {
+				return err
+			}
+
+			_, err = db.Exec(query, args...)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	return downloadS3Object(sess, obj, cfg, db, parseHandler)
+}
+
+func riderDataFromS3(db *sql.DB) error {
 	cfg := s3Config{
 		bucket:  bucket,
 		prefix:  prefixRiders,
@@ -183,10 +284,23 @@ func riderDataFromS3() error {
 		lineCap: 3,
 	}
 
-	//var handler s3ListHandler
-	handler := downloadRiderData
+	if err := listS3Bucket(cfg, db, downloadRiderData); err != nil {
+		return err
+	}
 
-	if err := listS3Bucket(cfg, handler); err != nil {
+	return nil
+}
+
+func tripDataFromS3(db *sql.DB) error {
+	cfg := s3Config{
+		bucket:  bucket,
+		prefix:  prefixTrips,
+		region:  region,
+		fileCap: 10,
+		lineCap: 100,
+	}
+
+	if err := listS3Bucket(cfg, db, downloadTripData); err != nil {
 		return err
 	}
 

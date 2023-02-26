@@ -6,17 +6,22 @@ import (
 	"log"
 	"path/filepath"
 
+	"github.com/Masterminds/squirrel"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 const (
-	dsn                 = "host=localhost port=5433 user=pguser password=password dbname=db_test sslmode=disable"
+	dsn                 = "host=localhost port=5432 user=pguser password=password dbname=db sslmode=disable"
 	codeUniqueViolation = "23505"
 	dirMigrations       = "migrations"
 )
 
 //go:embed migrations/*.sql
 var initSQLDir embed.FS
+
+func stmtBuilder() squirrel.StatementBuilderType {
+	return squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
+}
 
 func connectDB() (*sql.DB, error) {
 	log.Println("Connecting to database.")
@@ -33,7 +38,7 @@ func connectDB() (*sql.DB, error) {
 	return db, nil
 }
 
-func initDB() error {
+func initDB(db *sql.DB) error {
 	log.Println("Running migrations.")
 
 	files, err := initSQLDir.ReadDir(dirMigrations)
@@ -50,7 +55,10 @@ func initDB() error {
 			return err
 		}
 
-		log.Println(string(buf))
+		_, err = db.Exec(string(buf))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
