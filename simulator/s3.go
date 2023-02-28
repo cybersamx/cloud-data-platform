@@ -8,10 +8,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,7 +27,7 @@ const (
 	region       = "us-east-1"
 )
 
-type s3ListFunc func(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error
+type s3FileHandleFunc func(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error
 type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, lineCap int) error
 
 type s3Config struct {
@@ -59,7 +59,21 @@ func isS3Dir(obj *s3.Object) bool {
 	return parts[len(parts)-1] == ""
 }
 
-func listS3Bucket(cfg s3Config, db *sql.DB, handler s3ListFunc) error {
+var units = [...]string{"B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB"}
+
+func normalizeSize(size int64) (float64, string) {
+	fsize := float64(size)
+
+	step := 0
+	for fsize < 0.0 || fsize > 1000.0 {
+		fsize /= 1024.0
+		step++
+	}
+
+	return fsize, units[step]
+}
+
+func listS3Bucket(cfg s3Config, db *sql.DB, handler s3FileHandleFunc) error {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.region),
 	})
@@ -77,10 +91,28 @@ func listS3Bucket(cfg s3Config, db *sql.DB, handler s3ListFunc) error {
 		return err
 	}
 
+	size := int64(0)
+	count := 0
+	for _, obj := range objs.Contents {
+		size += *obj.Size
+		count++
+	}
+
+	nsize, unit := normalizeSize(size)
+	log.Printf("Number of files found: %d", count)
+	log.Printf("Total size of files: %.3f %s", nsize, unit)
+
+	// For each file, spawn off a worker to process and load the file.
 	numDir := 0
+
+	var wg sync.WaitGroup
+
+	// Make a buffered channel to limit the number of concurrent goroutines.
+	workersChan := make(chan struct{}, 4)
+
 	for i, obj := range objs.Contents {
 		if i-numDir >= cfg.fileCap {
-			return nil
+			break
 		}
 
 		if isS3Dir(obj) {
@@ -92,15 +124,30 @@ func listS3Bucket(cfg s3Config, db *sql.DB, handler s3ListFunc) error {
 			if i == 0 {
 				log.Printf("List of s3 bucket %s:", cfg.bucket)
 			}
-			fmt.Printf("File %s of size %d\n", *obj.Key, *obj.Size)
+			log.Printf("File %s of size %d\n", *obj.Key, *obj.Size)
 
 			continue
 		}
 
-		if err := handler(sess, obj, cfg, db); err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func(o *s3.Object) {
+			defer wg.Done()
+
+			// If channel is filled to the cap, the goroutine will be blocked until objects
+			// are released from the channel.
+			workersChan <- struct{}{}
+
+			err := handler(sess, o, cfg, db)
+			if err != nil {
+				log.Println(err)
+			}
+
+			// Consume the channel to release the object.
+			<-workersChan
+		}(obj)
 	}
+
+	wg.Wait()
 
 	return nil
 }
@@ -137,15 +184,15 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, db *s
 
 // --- Application Specific Functions ---
 
-func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) (rerr error) {
+// downloadRiderData implements the s3FileHandleFunc function type by reading a gzipped, json-formatted trip file,
+// parsing the content, and insert the content to postgres.
+func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error {
 	parseHandler := func(reader io.Reader, db *sql.DB, lineCap int) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			rerr = gzReader.Close()
-		}()
+		defer gzReader.Close()
 
 		// Read the decompressed content line by line.
 		// NOTE: Each line is json encoded string.
@@ -202,15 +249,15 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *
 	return downloadS3Object(sess, obj, cfg, db, parseHandler)
 }
 
-func downloadTripData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) (rerr error) {
+// downloadTripData implements the s3FileHandleFunc function type by reading a gzipped, csv-formatted trip file,
+// parsing the content, and insert the content to postgres.
+func downloadTripData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error {
 	parseHandler := func(reader io.Reader, db *sql.DB, lineCap int) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			rerr = gzReader.Close()
-		}()
+		defer gzReader.Close()
 
 		// Read the decompressed content line by line.
 		ungzip := bufio.NewScanner(gzReader)
@@ -280,7 +327,7 @@ func riderDataFromS3(db *sql.DB) error {
 		bucket:  bucket,
 		prefix:  prefixRiders,
 		region:  region,
-		fileCap: 1,
+		fileCap: 2,
 		lineCap: 3,
 	}
 
@@ -296,8 +343,8 @@ func tripDataFromS3(db *sql.DB) error {
 		bucket:  bucket,
 		prefix:  prefixTrips,
 		region:  region,
-		fileCap: 10,
-		lineCap: 100,
+		fileCap: 14,
+		lineCap: 2,
 	}
 
 	if err := listS3Bucket(cfg, db, downloadTripData); err != nil {
