@@ -15,7 +15,7 @@ const (
 
 	bucket = "snowflake-workshop-lab"
 	region = "us-east-1"
-	dsn    = "host=localhost port=5432 user=pguser password=password dbname=db sslmode=disable"
+	dsn    = "host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable"
 
 	tripsPrefix     = "citibike-trips"
 	tripsFileCap    = 14

@@ -5,8 +5,10 @@ services:
     image: postgres:10.23-alpine
     container_name: postgres
     ports:
-      - '5432:5432'
+      - '5433:5432'
     environment:
       POSTGRES_USER: pguser
       POSTGRES_PASSWORD: password
       POSTGRES_DB: db
+networks:
+  simulator_internal:
