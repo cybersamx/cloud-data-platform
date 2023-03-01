@@ -62,6 +62,26 @@ terraform.rc
 ### JetBrains ###
 /.idea/
 
+### Go ###
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+
+# Test binary, built with `go test -c`. Match all *.test except Dockerfile.test
+*.test
+!Dockerfile.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+### Go Patch ###
+/vendor/
+/Godeps/
+
 ### Others ###
 /.tmp/
 .env
