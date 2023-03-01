@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -20,35 +21,29 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
-const (
-	bucket       = "snowflake-workshop-lab"
-	prefixRiders = "citibike-trips-json"
-	prefixTrips  = "citibike-trips"
-	region       = "us-east-1"
-)
+const ()
 
-type s3FileHandleFunc func(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error
-type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, lineCap int) error
+type s3FileHandleFunc func(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error
+type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, cfg config) error
 
-type s3Config struct {
-	bucket  string
-	prefix  string
-	region  string
-	fileCap int
-	lineCap int
-}
-
-type trip struct {
-	TripDuration     *int
-	StartTime        *time.Time
-	EndTime          *time.Time
-	StartStationID   *int
-	StartStationName *string
-	StartStationLat  *float32
-	StartStationLong *float32
+type config struct {
+	bucket      string
+	region      string
+	prefix      string
+	lowerDelay  int
+	upperDelay  int
+	lowerRecord int
+	upperRecord int
+	fileCap     int
+	recordCap   int
+	workerCap   int
 }
 
 // --- Helper Functions ---
+
+func init() {
+	rand.Seed(time.Now().UnixMilli())
+}
 
 func isS3Dir(obj *s3.Object) bool {
 	parts := strings.Split(*obj.Key, "/")
@@ -73,7 +68,24 @@ func normalizeSize(size int64) (float64, string) {
 	return fsize, units[step]
 }
 
-func listS3Bucket(cfg s3Config, db *sql.DB, handler s3FileHandleFunc) error {
+func randDelay(cfg config) time.Duration {
+	r := float32(rand.Int()%100) / 100.0
+	delay := time.Duration(r * float32(time.Duration(cfg.upperDelay-cfg.lowerDelay)*time.Millisecond))
+
+	return delay
+}
+
+func randBlockSize(cfg config) int {
+	r := float32(rand.Int()%100) / 100.0
+	blockSize := int(r * float32(cfg.upperRecord-cfg.lowerRecord))
+	if blockSize > cfg.recordCap {
+		blockSize = cfg.recordCap
+	}
+
+	return blockSize
+}
+
+func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(cfg.region),
 	})
@@ -152,7 +164,7 @@ func listS3Bucket(cfg s3Config, db *sql.DB, handler s3FileHandleFunc) error {
 	return nil
 }
 
-func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB, handler s3ParseObjectFunc) error {
+func downloadS3Object(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB, handler s3ParseObjectFunc) error {
 	log.Printf("Extracting file %s of size %d from s3\n", *obj.Key, *obj.Size)
 
 	downloader := s3manager.NewDownloader(sess)
@@ -174,7 +186,7 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, db *s
 
 	if handler != nil {
 		reader := bytes.NewReader(buf)
-		if err := handler(reader, db, cfg.lineCap); err != nil {
+		if err := handler(reader, db, cfg); err != nil {
 			return err
 		}
 	}
@@ -186,8 +198,8 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg s3Config, db *s
 
 // downloadRiderData implements the s3FileHandleFunc function type by reading a gzipped, json-formatted trip file,
 // parsing the content, and insert the content to postgres.
-func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error {
-	parseHandler := func(reader io.Reader, db *sql.DB, lineCap int) error {
+func downloadRiderData(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error {
+	parseHandler := func(reader io.Reader, db *sql.DB, cfg config) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
@@ -200,13 +212,26 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *
 		buf := make([]byte, 0, bufio.MaxScanTokenSize)
 		ungzip.Buffer(buf, bufio.MaxScanTokenSize*4)
 
-		n := 0
+		lineNum := 0
+		lineNumBlock := 0
+		blockSize := randBlockSize(cfg)
+		delay := randDelay(cfg)
+		log.Printf("Loading a block of %d records and then delay for %s", blockSize, delay.Round(time.Millisecond).String())
+
 		for ungzip.Scan() {
-			if n >= lineCap {
+			if lineNum >= cfg.recordCap {
 				return nil
 			}
 
-			n++
+			if lineNumBlock >= blockSize {
+				blockSize = randBlockSize(cfg)
+				lineNumBlock = 0
+				time.Sleep(delay)
+				continue
+			}
+
+			lineNum++
+			lineNumBlock++
 
 			line := ungzip.Bytes()
 			if ungzip.Err() != nil {
@@ -251,8 +276,8 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg s3Config, db *
 
 // downloadTripData implements the s3FileHandleFunc function type by reading a gzipped, csv-formatted trip file,
 // parsing the content, and insert the content to postgres.
-func downloadTripData(sess *session.Session, obj *s3.Object, cfg s3Config, db *sql.DB) error {
-	parseHandler := func(reader io.Reader, db *sql.DB, lineCap int) error {
+func downloadTripData(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error {
+	parseHandler := func(reader io.Reader, db *sql.DB, cfg config) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
@@ -264,13 +289,26 @@ func downloadTripData(sess *session.Session, obj *s3.Object, cfg s3Config, db *s
 		buf := make([]byte, 0, bufio.MaxScanTokenSize)
 		ungzip.Buffer(buf, bufio.MaxScanTokenSize*4)
 
-		n := 0
+		lineNum := 0
+		lineNumBlock := 0
+		blockSize := randBlockSize(cfg)
+		delay := randDelay(cfg)
+		log.Printf("Loading a block of %d records and then delay for %s", blockSize, delay.Round(time.Millisecond).String())
+
 		for ungzip.Scan() {
-			if n >= lineCap {
+			if lineNum >= cfg.recordCap {
 				return nil
 			}
 
-			n++
+			if lineNumBlock >= blockSize {
+				blockSize = randBlockSize(cfg)
+				lineNumBlock = 0
+				time.Sleep(delay)
+				continue
+			}
+
+			lineNum++
+			lineNumBlock++
 
 			line := ungzip.Bytes()
 			if ungzip.Err() != nil {
@@ -320,36 +358,4 @@ func downloadTripData(sess *session.Session, obj *s3.Object, cfg s3Config, db *s
 	}
 
 	return downloadS3Object(sess, obj, cfg, db, parseHandler)
-}
-
-func riderDataFromS3(db *sql.DB) error {
-	cfg := s3Config{
-		bucket:  bucket,
-		prefix:  prefixRiders,
-		region:  region,
-		fileCap: 2,
-		lineCap: 3,
-	}
-
-	if err := listS3Bucket(cfg, db, downloadRiderData); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func tripDataFromS3(db *sql.DB) error {
-	cfg := s3Config{
-		bucket:  bucket,
-		prefix:  prefixTrips,
-		region:  region,
-		fileCap: 14,
-		lineCap: 2,
-	}
-
-	if err := listS3Bucket(cfg, db, downloadTripData); err != nil {
-		return err
-	}
-
-	return nil
 }

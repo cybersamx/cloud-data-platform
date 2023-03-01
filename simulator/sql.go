@@ -11,9 +11,7 @@ import (
 )
 
 const (
-	dsn                 = "host=localhost port=5432 user=pguser password=password dbname=db sslmode=disable"
-	codeUniqueViolation = "23505"
-	dirMigrations       = "migrations"
+	dirMigrations = "migrations"
 )
 
 //go:embed migrations/*.sql
@@ -23,7 +21,7 @@ func stmtBuilder() squirrel.StatementBuilderType {
 	return squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
 }
 
-func connectDB() (*sql.DB, error) {
+func connectDB(dsn string) (*sql.DB, error) {
 	log.Println("Connecting to database.")
 
 	db, err := sql.Open("pgx", dsn)
