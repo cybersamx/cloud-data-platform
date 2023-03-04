@@ -18,7 +18,3 @@ provider "snowflake" {
   alias = "security_admin"
   role  = "SECURITYADMIN"
 }
-
-
-
-
