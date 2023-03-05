@@ -23,4 +23,17 @@ locals {
       }
     ]
   ]))
+
+  # Flatten the nested data structure to tables.
+  tables = distinct(flatten([
+    for schema in var.schemas : [
+      for table in schema.tables : {
+        schema  = schema.name
+        name    = table.name
+        columns = table.columns
+      }
+    ]
+  ]))
 }
+
+

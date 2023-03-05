@@ -1,3 +1,8 @@
+variable "database_mame" {
+  type    = string
+  default = "CDP_DEV"
+}
+
 variable "roles" {
   type = map(object({
     name    = string
@@ -79,8 +84,8 @@ variable "warehouses" {
 }
 
 variable "databases" {
-  type    = string
-  default = "CDP_DEV"
+  type    = list(string)
+  default = ["CDP_DEV", "CDP_PROD"]
 }
 
 variable "schemas" {

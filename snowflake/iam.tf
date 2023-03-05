@@ -19,7 +19,7 @@ resource "snowflake_role" "roles" {
   comment = each.value.comment
 }
 
-resource "snowflake_role_grants" "new_roles" {
+resource "snowflake_role_grants" "role_grants" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference users.
   depends_on = [snowflake_user.users]

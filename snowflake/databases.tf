@@ -1,13 +1,13 @@
 resource "snowflake_database" "cdp" {
   provider = snowflake.sys_admin
 
-  name = "CDP_DEV"
+  name = var.database_mame
 }
 
 resource "snowflake_database_grant" "roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
-  depends_on = [snowflake_schema.schemas, snowflake_role.roles]
+  depends_on = [snowflake_role.roles, snowflake_database.cdp]
   # for_each only accept map or list of string, so we need to convert the list to a map.
   for_each = { for item in local.schema_privileges : "${item.schema}.${item.privilege}" => item }
 
@@ -20,7 +20,7 @@ resource "snowflake_database_grant" "roles" {
 resource "snowflake_schema_grant" "roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
-  depends_on = [snowflake_schema.schemas, snowflake_role.roles]
+  depends_on = [snowflake_role.roles, snowflake_schema.schemas]
   # for_each only accept map or list of string, so we need to convert the list to a map.
   for_each = { for item in local.schema_privileges : "${item.schema}.${item.privilege}" => item }
 
@@ -40,16 +40,19 @@ resource "snowflake_schema" "schemas" {
   comment  = each.value.comment
 }
 
-resource "snowflake_table" "trips" {
+resource "snowflake_table" "all" {
   provider = snowflake.sys_admin
-  for_each = var.schemas
+  # Explicit depends_on because we are using string to reference schemas and role.
+  depends_on = [snowflake_schema.schemas]
+  # for_each only accept map or list of string, so we need to convert the list to a map.
+  for_each = { for item in local.tables : "${item.schema}.${item.name}" => item }
 
   database = snowflake_database.cdp.name
-  schema   = each.key
-  name     = "TRIPS" # TODO: Don't hardcode, get the value from locals.
+  schema   = each.value.schema
+  name     = each.value.name
 
   dynamic "column" {
-    for_each = each.value.tables.TRIPS.columns
+    for_each = each.value.columns
     content {
       name     = column.key
       type     = lookup(column.value, "type", "VARCHAR(16777216)")
@@ -61,7 +64,7 @@ resource "snowflake_table" "trips" {
 resource "snowflake_table_grant" "trips" {
   provider = snowflake.sys_admin
   # Explicit depends_on because we are using string to reference schemas and role.
-  depends_on = [snowflake_schema.schemas, snowflake_role.roles, snowflake_table.trips]
+  depends_on = [snowflake_role.roles, snowflake_schema.schemas, snowflake_table.all]
   # for_each only accept map or list of string, so we need to convert the list to a map.
   for_each = { for item in local.table_privileges : "${item.schema}.${item.table}.${item.privilege}" => item }
 
