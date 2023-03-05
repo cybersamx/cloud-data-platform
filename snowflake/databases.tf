@@ -1,204 +1,3 @@
-locals {
-  schemas = {
-    RAW = {
-      name                = "RAW"
-      comment             = "Dump of raw data extracted from data sources"
-      schema_usage_roles  = ["LOADER", "TRANSFORMER"]
-      schema_modify_roles = ["LOADER"]
-
-      tables = {
-        TRIPS = {
-          name = "TRIPS"
-          privileges = {
-            SELECT = {
-              name  = "SELECT"
-              roles = ["LOADER", "TRANSFORMER"]
-            }
-            INSERT = {
-              name  = "INSERT"
-              roles = ["TRANSFORMER"]
-            }
-          }
-          columns = {
-            trip_duration = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            start_time = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            stop_time = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            start_station_id = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            start_station_name = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            start_station_latitude = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            start_station_longitude = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            end_station_id = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            end_station_name = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            end_station_latitude = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            end_station_longitude = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            bike_id = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            membership_type = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            usertype = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            birth_year = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            gender = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-          }
-        }
-      }
-    }
-    ANALYTICS = {
-      name                = "ANALYTICS"
-      comment             = "Tables and views for analytics and reporting"
-      schema_usage_roles  = []
-      schema_modify_roles = ["TRANSFORMER"]
-
-      tables = {
-        "TRIPS" = {
-          name = "TRIPS"
-          privileges = {
-            SELECT = {
-              name  = "SELECT"
-              roles = ["TRANSFORMER"]
-            }
-            INSERT = {
-              name  = "INSERT"
-              roles = ["TRANSFORMER"]
-            }
-          }
-          columns = {
-            trip_duration = {
-              // For types use capitalized, basic types like NUMBER(38,0) than lowercase, alias types like
-              // integer or text. While NUMBER(38,0) is semantically equivalent to number(38,0), integer or INTEGER,
-              // the current Snowflake provider does an exact case sensitive match of the the string between the
-              // value in the terraform code and state. As a result, INTEGER or number(38,0) will be marked as change.
-              type     = "NUMBER(38,0)"
-              nullable = true
-            }
-            start_time = {
-              type     = "TIMESTAMP_NTZ(9)"
-              nullable = true
-            }
-            stop_time = {
-              type     = "TIMESTAMP_NTZ(9)"
-              nullable = true
-            }
-            start_station_id = {
-              type     = "NUMBER(38,0)"
-              nullable = true
-            }
-            start_station_name = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            start_station_latitude = {
-              type     = "FLOAT"
-              nullable = true
-            }
-            start_station_longitude = {
-              type     = "FLOAT"
-              nullable = true
-            }
-            end_station_id = {
-              type     = "NUMBER(38,0)"
-              nullable = true
-            }
-            end_station_name = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            end_station_latitude = {
-              type     = "FLOAT"
-              nullable = true
-            }
-            end_station_longitude = {
-              type     = "FLOAT"
-              nullable = true
-            }
-            bike_id = {
-              type     = "NUMBER(38,0)"
-              nullable = true
-            }
-            membership_type = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            usertype = {
-              type     = "VARCHAR(16777216)"
-              nullable = true
-            }
-            birth_year = {
-              type     = "NUMBER(38,0)"
-              nullable = true
-            }
-            gender = {
-              type     = "NUMBER(38,0)"
-              nullable = true
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-locals {
-  # Flatten the nested data structures.
-  table_privileges = distinct(flatten([
-    for schema in local.schemas : [
-      for table in schema.tables : [
-        for privilege in table.privileges : {
-          schema    = schema.name
-          table     = table.name
-          privilege = privilege.name
-          roles     = privilege.roles
-        }
-      ]
-    ]
-  ]))
-}
-
 resource "snowflake_database" "cdp" {
   provider = snowflake.sys_admin
 
@@ -209,7 +8,7 @@ resource "snowflake_database_grant" "usage_roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
   depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = local.schemas
+  for_each   = var.schemas
 
   database_name     = snowflake_database.cdp.name
   privilege         = "USAGE"
@@ -221,7 +20,7 @@ resource "snowflake_database_grant" "modify_roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
   depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = local.schemas
+  for_each   = var.schemas
 
   database_name     = snowflake_database.cdp.name
   privilege         = "MODIFY"
@@ -233,7 +32,7 @@ resource "snowflake_schema_grant" "usage_roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
   depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = local.schemas
+  for_each   = var.schemas
 
   database_name     = snowflake_database.cdp.name
   schema_name       = each.key
@@ -246,7 +45,7 @@ resource "snowflake_schema_grant" "modify_roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
   depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = local.schemas
+  for_each   = var.schemas
 
   database_name     = snowflake_database.cdp.name
   schema_name       = each.key
@@ -257,7 +56,7 @@ resource "snowflake_schema_grant" "modify_roles" {
 
 resource "snowflake_schema" "schemas" {
   provider = snowflake.sys_admin
-  for_each = local.schemas
+  for_each = var.schemas
 
   name     = each.key
   database = snowflake_database.cdp.name
@@ -266,7 +65,7 @@ resource "snowflake_schema" "schemas" {
 
 resource "snowflake_table" "trips" {
   provider = snowflake.sys_admin
-  for_each = local.schemas
+  for_each = var.schemas
 
   database = snowflake_database.cdp.name
   schema   = each.key
