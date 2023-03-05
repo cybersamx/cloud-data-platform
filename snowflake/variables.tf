@@ -85,10 +85,12 @@ variable "databases" {
 
 variable "schemas" {
   type = map(object({
-    name                = string
-    comment             = string
-    schema_usage_roles  = list(string)
-    schema_modify_roles = list(string)
+    name    = string
+    comment = string
+    privileges = map(object({
+      name  = string
+      roles = list(string)
+    }))
     tables = map(object({
       name = string
       privileges = map(object({
@@ -104,10 +106,19 @@ variable "schemas" {
 
   default = {
     "RAW" = {
-      name                = "RAW"
-      comment             = "Dump of raw data extracted from data sources"
-      schema_usage_roles  = ["LOADER", "TRANSFORMER"]
-      schema_modify_roles = ["LOADER"]
+      name    = "RAW"
+      comment = "Dump of raw data extracted from data sources"
+
+      privileges = {
+        "USAGE" = {
+          name  = "USAGE"
+          roles = ["LOADER", "TRANSFORMER"]
+        }
+        "MODIFY" = {
+          name  = "MODIFY"
+          roles = ["LOADER"]
+        }
+      }
 
       tables = {
         "TRIPS" = {
@@ -176,10 +187,15 @@ variable "schemas" {
       }
     }
     ANALYTICS = {
-      name                = "ANALYTICS"
-      comment             = "Tables and views for analytics and reporting"
-      schema_usage_roles  = []
-      schema_modify_roles = ["TRANSFORMER"]
+      name    = "ANALYTICS"
+      comment = "Tables and views for analytics and reporting"
+
+      privileges = {
+        "MODIFY" = {
+          name  = "MODIFY"
+          roles = ["TRANSFORMER"]
+        }
+      }
 
       tables = {
         "TRIPS" = {

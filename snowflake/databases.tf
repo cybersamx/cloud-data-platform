@@ -4,53 +4,30 @@ resource "snowflake_database" "cdp" {
   name = "CDP_DEV"
 }
 
-resource "snowflake_database_grant" "usage_roles" {
+resource "snowflake_database_grant" "roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
   depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = var.schemas
+  # for_each only accept map or list of string, so we need to convert the list to a map.
+  for_each = { for item in local.schema_privileges : "${item.schema}.${item.privilege}" => item }
 
   database_name     = snowflake_database.cdp.name
-  privilege         = "USAGE"
-  roles             = each.value.schema_usage_roles
+  privilege         = each.value.privilege
+  roles             = each.value.roles
   with_grant_option = false
 }
 
-resource "snowflake_database_grant" "modify_roles" {
+resource "snowflake_schema_grant" "roles" {
   provider = snowflake.security_admin
   # Explicit depends_on because we are using string to reference schemas and role.
   depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = var.schemas
+  # for_each only accept map or list of string, so we need to convert the list to a map.
+  for_each = { for item in local.schema_privileges : "${item.schema}.${item.privilege}" => item }
 
   database_name     = snowflake_database.cdp.name
-  privilege         = "MODIFY"
-  roles             = each.value.schema_modify_roles
-  with_grant_option = false
-}
-
-resource "snowflake_schema_grant" "usage_roles" {
-  provider = snowflake.security_admin
-  # Explicit depends_on because we are using string to reference schemas and role.
-  depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = var.schemas
-
-  database_name     = snowflake_database.cdp.name
-  schema_name       = each.key
-  privilege         = "USAGE"
-  roles             = each.value.schema_usage_roles
-  with_grant_option = false
-}
-
-resource "snowflake_schema_grant" "modify_roles" {
-  provider = snowflake.security_admin
-  # Explicit depends_on because we are using string to reference schemas and role.
-  depends_on = [snowflake_schema.schemas, snowflake_role.roles]
-  for_each   = var.schemas
-
-  database_name     = snowflake_database.cdp.name
-  schema_name       = each.key
-  privilege         = "MODIFY"
-  roles             = each.value.schema_modify_roles
+  schema_name       = each.value.schema
+  privilege         = each.value.privilege
+  roles             = each.value.roles
   with_grant_option = false
 }
 
