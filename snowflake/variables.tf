@@ -31,30 +31,30 @@ variable "roles" {
 
 variable "users" {
   type = map(object({
-    name      = string
-    comment   = optional(string)
-    role      = string
-    warehouse = optional(string)
+    name              = string
+    comment           = optional(string)
+    default_role      = string
+    default_warehouse = optional(string)
   }))
 
   default = {
     "AIRBYTE" = {
-      name      = "AIRBYTE"
-      comment   = "The service account for airbyte"
-      role      = "LOADER"
-      warehouse = "LOADING"
+      name              = "AIRBYTE"
+      comment           = "The service account for airbyte"
+      default_role      = "LOADER"
+      default_warehouse = "LOADING"
     }
     "DBT" = {
-      name      = "DBT"
-      comment   = "The service account for dbt"
-      role      = "LOADER"
-      warehouse = "TRANSFORMING"
+      name              = "DBT"
+      comment           = "The service account for dbt"
+      default_role      = "LOADER"
+      default_warehouse = "TRANSFORMING"
     }
     "PYTHON" = {
-      name      = "PYTHON"
-      comment   = "Ad-hoc python script for analytics"
-      role      = "REPORTER"
-      warehouse = "REPORTING"
+      name              = "PYTHON"
+      comment           = "Ad-hoc python script for analytics"
+      default_role      = "REPORTER"
+      default_warehouse = "REPORTING"
     }
   }
 }
@@ -85,7 +85,7 @@ variable "warehouses" {
 
 variable "databases" {
   type    = list(string)
-  default = ["CDP_DEV", "CDP_PROD"]
+  default = ["CDP_DEV"]
 }
 
 variable "schemas" {

@@ -1,13 +1,14 @@
 resource "snowflake_user" "users" {
   provider = snowflake.security_admin
-  for_each = var.users
+  # for_each only accept map or list of string, so we need to convert the list to a map.
+  for_each = { for item in local.users : "${item.database}.${item.name}" => item }
 
-  name                 = each.key
-  login_name           = each.key
+  name                 = each.value.name
+  login_name           = each.value.name
   comment              = each.value.comment
-  default_role         = each.value.role
-  default_namespace    = "${snowflake_database.cdp.name}.PUBLIC"
-  default_warehouse    = each.value.warehouse
+  default_role         = each.value.default_role
+  default_namespace    = "${each.value.database}.PUBLIC"
+  default_warehouse    = each.value.default_warehouse
   must_change_password = false
 }
 
