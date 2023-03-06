@@ -7,6 +7,7 @@ locals {
         name              = user.name
         comment           = user.comment
         default_role      = user.default_role
+        default_namespace = user.default_namespace
         default_warehouse = user.default_warehouse
       }
     ]

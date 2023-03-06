@@ -1,8 +1,3 @@
-variable "database_mame" {
-  type    = string
-  default = "CDP_DEV"
-}
-
 variable "roles" {
   type = map(object({
     name    = string
@@ -34,6 +29,7 @@ variable "users" {
     name              = string
     comment           = optional(string)
     default_role      = string
+    default_namespace = string
     default_warehouse = optional(string)
   }))
 
@@ -42,18 +38,21 @@ variable "users" {
       name              = "AIRBYTE"
       comment           = "The service account for airbyte"
       default_role      = "LOADER"
+      default_namespace = "CDP_DEV.RAW"
       default_warehouse = "LOADING"
     }
     "DBT" = {
       name              = "DBT"
       comment           = "The service account for dbt"
-      default_role      = "LOADER"
+      default_role      = "TRANSFORMER"
+      default_namespace = "CDP_DEV.RAW"
       default_warehouse = "TRANSFORMING"
     }
     "PYTHON" = {
       name              = "PYTHON"
       comment           = "Ad-hoc python script for analytics"
       default_role      = "REPORTER"
+      default_namespace = "CDP_DEV.ANALYTICS"
       default_warehouse = "REPORTING"
     }
   }
@@ -64,7 +63,7 @@ variable "warehouses" {
     name         = string
     comment      = optional(string)
     size         = optional(string, "X-Small")
-    auto_suspend = optional(number, 30)
+    auto_suspend = optional(number, 15)
   }))
 
   default = {

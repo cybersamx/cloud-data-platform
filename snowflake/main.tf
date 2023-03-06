@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.3"
+
   required_providers {
     snowflake = {
       source  = "snowflake-labs/snowflake"
@@ -7,7 +9,7 @@ terraform {
   }
 }
 
-# Allows us to create Snowflake resources with a specific role.
+# Allows us to create Snowflake resources with a specific owner.
 
 provider "snowflake" {
   alias = "sys_admin"

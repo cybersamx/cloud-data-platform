@@ -7,7 +7,7 @@ resource "snowflake_user" "users" {
   login_name           = each.value.name
   comment              = each.value.comment
   default_role         = each.value.default_role
-  default_namespace    = "${each.value.database}.PUBLIC"
+  default_namespace    = each.value.default_namespace
   default_warehouse    = each.value.default_warehouse
   must_change_password = false
 }

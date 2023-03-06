@@ -1,8 +1,10 @@
 resource "snowflake_warehouse" "cdp" {
   provider = snowflake.sys_admin
+  for_each = var.warehouses
 
-  name           = "CDP_DEV"
-  warehouse_size = "X-Small"
-  # Auto suspend after seconds of inactivity, since this is a prototype, keep the value low to save $
-  auto_suspend = 15
+  name                = each.value.name
+  comment             = each.value.comment
+  initially_suspended = true
+  warehouse_size      = each.value.size
+  auto_suspend        = each.value.auto_suspend
 }
