@@ -1,0 +1,5 @@
+.env
+.env.dev
+docker-compose.yaml
+docker-compose.debug.yaml
+flags.yml
