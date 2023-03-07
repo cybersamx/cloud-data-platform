@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	appname   = "datasim"
+	appname   = "simulator"
 	envPrefix = "DS"
 
 	bucket = "snowflake-workshop-lab"

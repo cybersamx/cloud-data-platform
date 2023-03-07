@@ -1,4 +1,6 @@
 # Paths
+PROJECT := simulator
+PROJECT_BIN := bin
 ROOT_DIR := $(patsubst %/,%, $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 DOCKER_DIR := $(ROOT_DIR)/docker
 DOCKER_COMPOSE_FILE := docker-compose.yaml
@@ -12,7 +14,14 @@ RESET := $(shell tput sgr0)
 # Targets
 
 .PHONY: all
-all: docker-up
+all: build
+
+###@ build: Build the data simulator
+
+.PHONY: build
+build:
+	@-echo "$(BLUE)Building $(PROJECT).$(RESET)"
+	$(GO_ENV) go build -o $(PROJECT_BIN)/$(PROJECT) $(SRC)
 
 ###@ docker-up: Start docker services
 
@@ -32,6 +41,7 @@ docker-down:
 
 .PHONY: help
 help: Makefile
+	@-echo $(ROOT_DIR)
 	@-echo "Usage:\n  make $(BLUE)<target>$(RESET)"
 	@-echo
 	@-sed -n 's/^###@//p' $< | column -t -s ':' | sed -e 's/[^ ]*/ &/2'
