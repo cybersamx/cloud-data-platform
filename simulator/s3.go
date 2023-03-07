@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
@@ -87,7 +88,8 @@ func randBlockSize(cfg config) int {
 
 func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(cfg.region),
+		Region:      aws.String(cfg.region),
+		Credentials: credentials.AnonymousCredentials,
 	})
 	if err != nil {
 		return err

@@ -1,0 +1,20 @@
+# Docker
+.dockerignore
+Dockerfile
+
+# Doc
+**/*.md
+LICENSE
+
+# Git
+.gitignore
+.git
+
+# Mac
+.DS_Store
+
+# Others
+.editorconfig
+.idea
+**/.tmp
+**/bin

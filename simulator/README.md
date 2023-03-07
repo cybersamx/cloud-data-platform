@@ -28,6 +28,12 @@ This directory contains the Docker Compose file for running postgres and the Go 
    bin/simulator start
    ```
 
+1. When we are done, run the following to teardown and close out the resources:
+
+   ```shell
+   make docker-down
+   ```
+
 > **Note**
 > 
 > This project is still a work-in-progress. So the setup is very basic. I hope to improve the project further.

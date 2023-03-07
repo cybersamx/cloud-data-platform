@@ -23,6 +23,19 @@ build:
 	@-echo "$(BLUE)Building $(PROJECT).$(RESET)"
 	$(GO_ENV) go build -o $(PROJECT_BIN)/$(PROJECT) $(SRC)
 
+###@ install: Download dependencies
+
+.PHONY: install
+install:
+	@go mod download
+
+###@ docker-build: Build the data simulator docker image
+
+.PHONY: docker-build
+docker-build:
+	@-echo "$(BLUE)Building $(PROJECT) docker image.$(RESET)"
+	docker-compose -f $(DOCKER_DIR)/$(DOCKER_COMPOSE_FILE) build
+
 ###@ docker-up: Start docker services
 
 .PHONY: docker-up
