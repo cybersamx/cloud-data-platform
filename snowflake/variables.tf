@@ -5,29 +5,51 @@ variable "user_password" {
 }
 
 variable "roles" {
-  type = map(object({
+  type = list(object({
     name    = string
     comment = optional(string)
-    users   = list(string)
   }))
 
-  default = {
-    "LOADER" = {
+  default = [
+    {
       name    = "LOADER"
       comment = "Owns the raw database and connects to the loading warehouse"
-      users   = ["AIRBYTE"]
-    }
-    "TRANSFORMER" = {
+    },
+    {
       name    = "TRANSFORMER"
       comment = "Owns the analytics database and has query permission on the raw database"
-      users   = ["DBT"]
-    }
-    "REPORTER" = {
+    },
+    {
       name    = "REPORTER"
       comment = "Has query permission on the analytics database"
-      users   = ["PYTHON"]
     }
-  }
+  ]
+}
+
+variable "role_grants" {
+  type = list(object({
+    role  = string
+    users = list(string)
+  }))
+
+  default = [
+    {
+      role  = "SYSADMIN"
+      users = ["AIRBYTE", "DBT"]
+    },
+    {
+      role  = "LOADER"
+      users = ["AIRBYTE"]
+    },
+    {
+      role  = "TRANSFORMER"
+      users = ["DBT"]
+    },
+    {
+      role  = "REPORTER"
+      users = ["PYTHON"]
+    }
+  ]
 }
 
 variable "users" {
