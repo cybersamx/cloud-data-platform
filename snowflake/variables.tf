@@ -1,3 +1,9 @@
+# Pass the value thru environment variable TF_VAR_user_password.
+variable "user_password" {
+  description = "New users' password - they all share the same password."
+  type        = string
+}
+
 variable "roles" {
   type = map(object({
     name    = string

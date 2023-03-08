@@ -6,6 +6,7 @@ resource "snowflake_user" "users" {
   name                 = each.value.name
   login_name           = each.value.name
   comment              = each.value.comment
+  password             = each.value.password
   default_role         = each.value.default_role
   default_namespace    = each.value.default_namespace
   default_warehouse    = each.value.default_warehouse

@@ -81,4 +81,5 @@ The terraform module creates a set of new users on Snowflake. We will be using a
 * [Terraforming Snowflake](https://quickstarts.snowflake.com/guide/terraforming_snowflake/index.html)
 * [Terraform provider: Snowflake](https://github.com/Snowflake-Labs/terraform-provider-snowflake)
 * [Terraform Snowflake Provider Documentation](https://registry.terraform.io/providers/Snowflake-Labs/snowflake/latest/docs)
+* [Snowflake default password policy](https://docs.snowflake.com/en/user-guide/admin-user-management)
 
