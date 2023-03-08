@@ -1,6 +1,5 @@
 resource "snowflake_user" "users" {
   provider = snowflake.security_admin
-  # for_each only accept map or list of string, so we need to convert the list to a map.
   for_each = { for v in local.users : "${v.database}.${v.name}" => v }
 
   name                 = each.value.name
