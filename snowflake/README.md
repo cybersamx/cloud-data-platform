@@ -68,13 +68,9 @@ The instructions were adopted from Snowflake document entitled [Terraform Snowfl
    terraform apply
    ```
 
-### Post Terraform Run
+## Future Work
 
-The terraform module creates a set of new users on Snowflake. We will be using a few of these new users on other tools such as Airbyte and Dbt to connect to Snowflake. This means that we need to set the passwords for the new users.
-
-1. Log into Snowflake admin console.
-2. Select Admin > Users & Roles on the left pane.
-3. Click the ellipsis for users `AIRBYTE`, `DBT`, and `PYTHON` and then select **Reset password**. Enter a password for these users.
+* For convenience, we grant `SYSADMIN` to users `DBT` and `AIRBYTE` as our Airbyte operations need elevated privileges above the standard `USAGE` and `MODIFY`. We should not use `SYSADMIN` and assign specific privileges to the users instead.
 
 ## References
 

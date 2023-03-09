@@ -244,10 +244,10 @@ variable "schemas" {
           }
           columns = {
             "trip_duration" = {
-              // For types use capitalized, basic types like NUMBER(38,0) than lowercase, alias types like
-              // integer or text. While NUMBER(38,0) is semantically equivalent to number(38,0), integer or INTEGER,
-              // the current Snowflake provider does an exact case sensitive match of the the string between the
-              // value in the terraform code and state. As a result, INTEGER or number(38,0) will be marked as change.
+              #             # For types use capitalized, basic types like NUMBER(38,0) than lowercase, alias types like
+              # integer or text. While NUMBER(38,0) is semantically equivalent to number(38,0), integer or INTEGER,
+              # the current Snowflake provider does an exact case sensitive match of the the string between the
+              # value in the terraform code and state. As a result, INTEGER or number(38,0) will be marked as change.
               type = "NUMBER(38,0)"
             }
             "start_time" = {

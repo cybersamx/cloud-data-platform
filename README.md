@@ -6,6 +6,8 @@ This project was set up to demonstrate how we can use modern software engineerin
 
 ## Architecture
 
+![Project Architecture](images/cdp-architecture.jpg)
+
 ### Data Warehouse
 
 While the goal of this project is to use open-source tools as much as possible, the de-facto data warehouse that most enterprises use today is Snowflake. So Snowflake is used our data warehouse for this project. We may add Druid as an sample data warehouse in later versions of this project.

@@ -4,6 +4,8 @@ Build the project for running a "simulated" transactional data source, from whic
 
 ## Overview
 
+![S3 Loading by the simulator](images/simulator-s3.jpg)
+
 Snowflake offers a beginner's workshop called [Virtual Zero-to-Snowflake](https://s3.amazonaws.com/snowflake-workshop-lab/OnlineZTS_LabGuide.pdf) hands-on lab. The lab uses the sample data from Citibike, which all the data for past 7 years or so are available on an AWS S3 bucket for loading to a Snowflake database instance directly using a Snowflake feature called **Stage**.
 
 But the goal of this project is to play around with Airbyte and its change data capture capabilities, so we want to be able to do the following:
