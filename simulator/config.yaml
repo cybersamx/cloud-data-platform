@@ -1,0 +1,8 @@
+bucket: snowflake-workshop-lab
+region: us-east-1
+dsn: 'host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable'
+trace: false
+files-load: 5
+rows-load: 10
+next-load-delay: 15s
+workers: 2

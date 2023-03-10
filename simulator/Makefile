@@ -16,10 +16,17 @@ RESET := $(shell tput sgr0)
 .PHONY: all
 all: build
 
+###@ copy: Copy config file
+
+.PHONY: copy
+copy:
+	@-echo "$(BLUE)Copy config file.$(RESET)"
+	cp config.yaml $(PROJECT_BIN)/$(PROJECT)
+
 ###@ build: Build the data simulator
 
 .PHONY: build
-build:
+build: copy
 	@-echo "$(BLUE)Building $(PROJECT).$(RESET)"
 	$(GO_ENV) go build -o $(PROJECT_BIN)/$(PROJECT) $(SRC)
 

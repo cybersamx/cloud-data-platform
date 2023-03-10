@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -88,15 +89,23 @@ func serveCommand() *cobra.Command {
 			}
 
 			// List and download objects from S3.
-			cfg.Prefix = tripsPrefix
-			if err := listS3Bucket(cfg, db, logger, downloadTripData); err != nil {
-				return err
+			var wg sync.WaitGroup
+
+			prefixes := []string{tripsPrefix, ridersPrefix}
+			for _, prefix := range prefixes {
+				cfg.Prefix = prefix
+
+				wg.Add(1)
+				go func(cfg config) {
+					defer wg.Done()
+
+					if err := listS3Bucket(cfg, db, logger, downloadTripData); err != nil {
+						logger.WithError(err)
+					}
+				}(cfg)
 			}
 
-			cfg.Prefix = ridersPrefix
-			if err := listS3Bucket(cfg, db, logger, downloadRiderData); err != nil {
-				return err
-			}
+			wg.Wait()
 
 			return nil
 		},
@@ -129,6 +138,10 @@ func serveCommand() *cobra.Command {
 	checkErr(err)
 	err = flags.Parse(os.Args)
 	checkErr(err)
+
+	if err := v.ReadInConfig(); err != nil {
+		checkErr(err)
+	}
 
 	// Parse.
 	err = v.Unmarshal(&cfg)
