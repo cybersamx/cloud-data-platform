@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -17,6 +18,7 @@ const (
 	bucket        = "snowflake-workshop-lab"
 	region        = "us-east-1"
 	dsn           = "host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable"
+	trace         = false
 	tripsPrefix   = "citibike-trips"
 	ridersPrefix  = "citibike-trips-json"
 	filesLoad     = 14
@@ -29,6 +31,24 @@ func checkErr(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "program exited due to %v\n", err)
 		os.Exit(1)
+	}
+}
+
+func newLogger(cfg config) *logrus.Logger {
+	logLevel := logrus.InfoLevel
+	if cfg.Trace {
+		logLevel = logrus.TraceLevel
+	}
+
+	return &logrus.Logger{
+		Out:   os.Stdout,
+		Level: logLevel,
+		Formatter: &logrus.TextFormatter{
+			ForceColors:            true,
+			FullTimestamp:          true,
+			TimestampFormat:        "2006-0102 15:04:05",
+			DisableLevelTruncation: true,
+		},
 	}
 }
 
@@ -55,6 +75,9 @@ func serveCommand() *cobra.Command {
 		Use:   "start",
 		Short: fmt.Sprintf("Start simulation"),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			logger := newLogger(cfg)
+
+			// Database.
 			db, err := connectDB(cfg.DSN)
 			if err != nil {
 				return err
@@ -64,13 +87,14 @@ func serveCommand() *cobra.Command {
 				return err
 			}
 
+			// List and download objects from S3.
 			cfg.Prefix = tripsPrefix
-			if err := listS3Bucket(cfg, db, downloadTripData); err != nil {
+			if err := listS3Bucket(cfg, db, logger, downloadTripData); err != nil {
 				return err
 			}
 
 			cfg.Prefix = ridersPrefix
-			if err := listS3Bucket(cfg, db, downloadRiderData); err != nil {
+			if err := listS3Bucket(cfg, db, logger, downloadRiderData); err != nil {
 				return err
 			}
 
@@ -95,6 +119,7 @@ func serveCommand() *cobra.Command {
 	flags.String("bucket", bucket, "The bucket containing the data files.")
 	flags.String("region", region, "The AWS Region associated with the bucket.")
 	flags.String("dsn", dsn, "DSN of the database to which the data loads.")
+	flags.Bool("trace", trace, "Enable tracing if true.")
 	flags.Int("files-load", filesLoad, "Number of data files to load.")
 	flags.Int("rows-load", rowsLoad, "Number of rows to load.")
 	flags.Duration("next-load-delay", nextLoadDelay, "The delay between loads.")

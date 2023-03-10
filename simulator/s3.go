@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -20,18 +18,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/sirupsen/logrus"
 )
 
-const ()
-
-type s3FileHandleFunc func(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error
-type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, cfg config) error
+type s3FileHandleFunc func(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB, logger *logrus.Logger) error
+type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, cfg config, logger *logrus.Logger) error
 
 // --- Helper Functions ---
-
-func init() {
-	rand.Seed(time.Now().UnixMilli())
-}
 
 func isS3Dir(obj *s3.Object) bool {
 	parts := strings.Split(*obj.Key, "/")
@@ -56,7 +49,7 @@ func normalizeSize(size int64) (float64, string) {
 	return fsize, units[step]
 }
 
-func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
+func listS3Bucket(cfg config, db *sql.DB, logger *logrus.Logger, handler s3FileHandleFunc) error {
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(cfg.Region),
 		Credentials: credentials.AnonymousCredentials,
@@ -83,16 +76,16 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	}
 
 	nsize, unit := normalizeSize(size)
-	log.Printf("Number of files found: %d", count)
-	log.Printf("Total size of files: %.3f %s", nsize, unit)
+	logger.Infof("Number of files found: %d", count)
+	logger.Infof("Total size of files: %.3f %s", nsize, unit)
 
-	// For each file, spawn off a worker to process and load the file.
 	numDir := 0
 
+	// For each file, spawn off a worker to process and load the file.
 	var wg sync.WaitGroup
 
 	// Make a buffered channel to limit the number of concurrent goroutines.
-	workersChan := make(chan struct{}, 4)
+	workersChan := make(chan struct{}, cfg.Workers)
 
 	for i, obj := range objs.Contents {
 		if i-numDir >= cfg.FilesLoad {
@@ -106,9 +99,9 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 
 		if handler == nil {
 			if i == 0 {
-				log.Printf("List of s3 bucket %s:", cfg.Bucket)
+				logger.Infof("List of s3 bucket %s:", cfg.Bucket)
 			}
-			log.Printf("File %s of size %d\n", *obj.Key, *obj.Size)
+			logger.Infof("File %s of size %d\n", *obj.Key, *obj.Size)
 
 			continue
 		}
@@ -121,10 +114,13 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 			// are released from the channel.
 			workersChan <- struct{}{}
 
-			err := handler(sess, o, cfg, db)
+			err := handler(sess, o, cfg, db, logger)
 			if err != nil {
-				log.Println(err)
+				logger.WithError(err)
 			}
+
+			// Delay for sometime before running the handler.
+			time.Sleep(cfg.NextLoadDelay)
 
 			// Consume the channel to release the object.
 			<-workersChan
@@ -136,8 +132,8 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	return nil
 }
 
-func downloadS3Object(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB, handler s3ParseObjectFunc) error {
-	log.Printf("Extracting file %s of size %d from s3\n", *obj.Key, *obj.Size)
+func downloadS3Object(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB, logger *logrus.Logger, handler s3ParseObjectFunc) error {
+	logger.Infof("Extracting file %s of size %d from s3\n", *obj.Key, *obj.Size)
 
 	downloader := s3manager.NewDownloader(sess)
 	downloader.Concurrency = 3
@@ -158,7 +154,7 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg config, db *sql
 
 	if handler != nil {
 		reader := bytes.NewReader(buf)
-		if err := handler(reader, db, cfg); err != nil {
+		if err := handler(reader, db, cfg, logger); err != nil {
 			return err
 		}
 	}
@@ -170,8 +166,8 @@ func downloadS3Object(sess *session.Session, obj *s3.Object, cfg config, db *sql
 
 // downloadRiderData implements the s3FileHandleFunc function type by reading a gzipped, json-formatted trip file,
 // parsing the content, and insert the content to postgres.
-func downloadRiderData(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error {
-	parseHandler := func(reader io.Reader, db *sql.DB, cfg config) error {
+func downloadRiderData(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB, logger *logrus.Logger) error {
+	parseHandler := func(reader io.Reader, db *sql.DB, cfg config, logger *logrus.Logger) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
@@ -203,14 +199,13 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg config, db *sq
 			err := json.Unmarshal(line, &record)
 			switch {
 			case errors.As(err, &syntaxErr):
-				log.Printf("Can't parse string to json; err=%v", err)
-				log.Printf("String: %s", ungzip.Text())
+				logger.WithError(err).Errorf("Can't parse string to json; string value: %q", ungzip.Text())
 				continue // Ignore
 			case err != nil:
 				return err
 			}
 
-			log.Println("Inserting:", record)
+			logger.Traceln("Inserting:", record)
 
 			stmt := stmtBuilder().
 				Insert("riders").
@@ -231,13 +226,13 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg config, db *sq
 		return nil
 	}
 
-	return downloadS3Object(sess, obj, cfg, db, parseHandler)
+	return downloadS3Object(sess, obj, cfg, db, logger, parseHandler)
 }
 
 // downloadTripData implements the s3FileHandleFunc function type by reading a gzipped, csv-formatted trip file,
 // parsing the content, and insert the content to postgres.
-func downloadTripData(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error {
-	parseHandler := func(reader io.Reader, db *sql.DB, cfg config) error {
+func downloadTripData(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB, logger *logrus.Logger) error {
+	parseHandler := func(reader io.Reader, db *sql.DB, cfg config, logger *logrus.Logger) error {
 		gzReader, err := gzip.NewReader(reader)
 		if err != nil {
 			return err
@@ -274,7 +269,7 @@ func downloadTripData(sess *session.Session, obj *s3.Object, cfg config, db *sql
 				return err
 			}
 
-			log.Println("Inserting:", record)
+			logger.Traceln("Inserting:", record)
 
 			stmt := stmtBuilder().
 				Insert("trips").
@@ -305,5 +300,5 @@ func downloadTripData(sess *session.Session, obj *s3.Object, cfg config, db *sql
 		return nil
 	}
 
-	return downloadS3Object(sess, obj, cfg, db, parseHandler)
+	return downloadS3Object(sess, obj, cfg, db, logger, parseHandler)
 }
