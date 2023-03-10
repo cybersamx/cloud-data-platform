@@ -4,6 +4,23 @@ This directory contains Terraform modules that can be execute to provision the S
 
 The terraform project for provisioning the resources we need on Snowflake is configured for a single-tenant environment. This means that only one person can provision the resources using Terraform as the project only saves the terraform state locally and won't be persisting the state in the Cloud.
 
+Here's a summary of Snowflake resources:
+
+* Account
+  * Storage resources
+    * Databases - charged by storage
+      * Schemas
+        * Tables
+        * Views
+        * Objects
+  * Compute resources
+    * Warehouses - charged by size of the compute instance associated with a warehouse.
+  * IAM resources
+    * Users
+    * Roles
+
+We can combine different set of databases, warehouses, and users/roles whenever we provision a new Snowflake setup. Our terraform module is based on DBT Lab's [article by dbt Labs on their recommended starter Snowflake setup](https://www.getdbt.com/blog/how-we-configure-snowflake/), which allows a clean separation of environments and scaling.
+
 ## Setup
 
 ### Snowflake Account Setup

@@ -10,7 +10,7 @@ This project was set up to demonstrate how we can use modern software engineerin
 
 ### Data Warehouse
 
-While the goal of this project is to use open-source tools as much as possible, the de-facto data warehouse that most enterprises use today is Snowflake. So Snowflake is used our data warehouse for this project. We may add Druid as an sample data warehouse in later versions of this project.
+While the goal of this project is to use open-source tools as much as possible, the de-facto data warehouse that most enterprises use today is Snowflake. So Snowflake is used our data warehouse for this project. We may add Druid as a sample data warehouse in later versions of this project.
 
 ### ELT
 
@@ -30,25 +30,6 @@ The following tools are used in this project:
 | Data unit test framework/runner | [Great Expectations (GX)](https://github.com/great-expectations/great_expectations) | 0.15    |
 | Environment provisioning        | [Terraform](https://github.com/hashicorp/terraform)                                 | 1.3     |
 | CI/CD                           | [Github Actions](https://github.com/features/actions)                               | n/a     |
- 
-### Snowflake
-
-Here's a summary of Snowflake resources:
-
-* Account
-  * Storage resources
-    * Databases - charged by storage
-      * Schemas
-        * Tables
-        * Views
-        * Objects
-  * Compute resources
-    * Warehouses - charged by size of the compute instance associated with a warehouse.
-  * IAM resources
-    * Users
-    * Roles
-
-We can combine different set of databases, warehouses, and users/roles whenever we provision a new Snowflake setup. Here's a great [article by dbt Labs on their recommended starter Snowflake setup](https://www.getdbt.com/blog/how-we-configure-snowflake/) that can scale up nicely in the future. Our terraform module adopts dbt Labs' pattern with 1 small modification: instead of 2 databases, we are using 1 database with 2 user-defined schemas.
 
 ## Setup
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -13,22 +14,15 @@ const (
 	appname   = "simulator"
 	envPrefix = "DS"
 
-	bucket = "snowflake-workshop-lab"
-	region = "us-east-1"
-	dsn    = "host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable"
-
-	tripsPrefix     = "citibike-trips"
-	tripsFileCap    = 14
-	tripsRecordCap  = 50
-	tripsWorkerCap  = 3
-	ridersPrefix    = "citibike-trips-json"
-	ridersFileCap   = 2
-	ridersRecordCap = 50
-	ridersWorkerCap = 2
-	randLowerDelay  = 500
-	randUpperDelay  = 7500
-	randLowerRecord = 10
-	randUpperRecord = 250
+	bucket        = "snowflake-workshop-lab"
+	region        = "us-east-1"
+	dsn           = "host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable"
+	tripsPrefix   = "citibike-trips"
+	ridersPrefix  = "citibike-trips-json"
+	filesLoad     = 14
+	rowsLoad      = 50
+	nextLoadDelay = 5 * time.Minute
+	workers       = 2
 )
 
 func checkErr(err error) {
@@ -54,7 +48,7 @@ func rootCommand() *cobra.Command {
 }
 
 func serveCommand() *cobra.Command {
-	cfg := cliConfig{}
+	cfg := config{}
 
 	// Sub command: start.
 	cmd := cobra.Command{
@@ -70,11 +64,13 @@ func serveCommand() *cobra.Command {
 				return err
 			}
 
-			if err := listS3Bucket(cfg.TripConfig(), db, downloadTripData); err != nil {
+			cfg.Prefix = tripsPrefix
+			if err := listS3Bucket(cfg, db, downloadTripData); err != nil {
 				return err
 			}
 
-			if err := listS3Bucket(cfg.RiderConfig(), db, downloadRiderData); err != nil {
+			cfg.Prefix = ridersPrefix
+			if err := listS3Bucket(cfg, db, downloadRiderData); err != nil {
 				return err
 			}
 
@@ -99,18 +95,10 @@ func serveCommand() *cobra.Command {
 	flags.String("bucket", bucket, "The bucket containing the data files.")
 	flags.String("region", region, "The AWS Region associated with the bucket.")
 	flags.String("dsn", dsn, "DSN of the database to which the data loads.")
-	flags.Int("lower-delay", randLowerDelay, "Lower bound of the random delay (ms) between load batches.")
-	flags.Int("upper-delay", randUpperDelay, "Upper bound of the random delay (ms) between load batches.")
-	flags.Int("lower-record", randLowerRecord, "Lower bound of the random size of block of records to load.")
-	flags.Int("upper-record", randUpperRecord, "Upper bound of the random size of block of records to load.")
-	flags.String("trips.prefix", tripsPrefix, "Prefix of the trip data files.")
-	flags.Int("trips.file-cap", tripsFileCap, "Number of trip data files to load.")
-	flags.Int("trips.record-cap", tripsRecordCap, "Number of trip data records to load.")
-	flags.Int("trips.worker-cap", tripsWorkerCap, "Number of concurrent workers for the trip data loading.")
-	flags.String("riders.prefix", ridersPrefix, "Prefix of the rider data files.")
-	flags.Int("riders.file-cap", ridersFileCap, "Number of rider data files to load.")
-	flags.Int("riders.record-cap", ridersRecordCap, "Number of rider data records to load.")
-	flags.Int("riders.worker-cap", ridersWorkerCap, "Number of concurrent workers for the rider data loading.")
+	flags.Int("files-load", filesLoad, "Number of data files to load.")
+	flags.Int("rows-load", rowsLoad, "Number of rows to load.")
+	flags.Duration("next-load-delay", nextLoadDelay, "The delay between loads.")
+	flags.Int("workers", workers, "Number of concurrent workers for the data loading.")
 
 	err := v.BindPFlags(flags)
 	checkErr(err)

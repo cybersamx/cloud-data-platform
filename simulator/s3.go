@@ -27,19 +27,6 @@ const ()
 type s3FileHandleFunc func(sess *session.Session, obj *s3.Object, cfg config, db *sql.DB) error
 type s3ParseObjectFunc func(reader io.Reader, db *sql.DB, cfg config) error
 
-type config struct {
-	bucket      string
-	region      string
-	prefix      string
-	lowerDelay  int
-	upperDelay  int
-	lowerRecord int
-	upperRecord int
-	fileCap     int
-	recordCap   int
-	workerCap   int
-}
-
 // --- Helper Functions ---
 
 func init() {
@@ -69,26 +56,9 @@ func normalizeSize(size int64) (float64, string) {
 	return fsize, units[step]
 }
 
-func randDelay(cfg config) time.Duration {
-	r := float32(rand.Int()%100) / 100.0
-	delay := time.Duration(r * float32(time.Duration(cfg.upperDelay-cfg.lowerDelay)*time.Millisecond))
-
-	return delay
-}
-
-func randBlockSize(cfg config) int {
-	r := float32(rand.Int()%100) / 100.0
-	blockSize := int(r * float32(cfg.upperRecord-cfg.lowerRecord))
-	if blockSize > cfg.recordCap {
-		blockSize = cfg.recordCap
-	}
-
-	return blockSize
-}
-
 func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(cfg.region),
+		Region:      aws.String(cfg.Region),
 		Credentials: credentials.AnonymousCredentials,
 	})
 	if err != nil {
@@ -98,8 +68,8 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	client := s3.New(sess)
 
 	objs, err := client.ListObjectsV2(&s3.ListObjectsV2Input{
-		Bucket: aws.String(cfg.bucket),
-		Prefix: aws.String(cfg.prefix),
+		Bucket: aws.String(cfg.Bucket),
+		Prefix: aws.String(cfg.Prefix),
 	})
 	if err != nil {
 		return err
@@ -125,7 +95,7 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 	workersChan := make(chan struct{}, 4)
 
 	for i, obj := range objs.Contents {
-		if i-numDir >= cfg.fileCap {
+		if i-numDir >= cfg.FilesLoad {
 			break
 		}
 
@@ -136,7 +106,7 @@ func listS3Bucket(cfg config, db *sql.DB, handler s3FileHandleFunc) error {
 
 		if handler == nil {
 			if i == 0 {
-				log.Printf("List of s3 bucket %s:", cfg.bucket)
+				log.Printf("List of s3 bucket %s:", cfg.Bucket)
 			}
 			log.Printf("File %s of size %d\n", *obj.Key, *obj.Size)
 
@@ -215,25 +185,13 @@ func downloadRiderData(sess *session.Session, obj *s3.Object, cfg config, db *sq
 		ungzip.Buffer(buf, bufio.MaxScanTokenSize*4)
 
 		lineNum := 0
-		lineNumBlock := 0
-		blockSize := randBlockSize(cfg)
-		delay := randDelay(cfg)
-		log.Printf("Loading a block of %d records and then delay for %s", blockSize, delay.Round(time.Millisecond).String())
 
 		for ungzip.Scan() {
-			if lineNum >= cfg.recordCap {
+			if lineNum >= cfg.RowsLoad {
 				return nil
 			}
 
-			if lineNumBlock >= blockSize {
-				blockSize = randBlockSize(cfg)
-				lineNumBlock = 0
-				time.Sleep(delay)
-				continue
-			}
-
 			lineNum++
-			lineNumBlock++
 
 			line := ungzip.Bytes()
 			if ungzip.Err() != nil {
@@ -292,25 +250,13 @@ func downloadTripData(sess *session.Session, obj *s3.Object, cfg config, db *sql
 		ungzip.Buffer(buf, bufio.MaxScanTokenSize*4)
 
 		lineNum := 0
-		lineNumBlock := 0
-		blockSize := randBlockSize(cfg)
-		delay := randDelay(cfg)
-		log.Printf("Loading a block of %d records and then delay for %s", blockSize, delay.Round(time.Millisecond).String())
 
 		for ungzip.Scan() {
-			if lineNum >= cfg.recordCap {
+			if lineNum >= cfg.RowsLoad {
 				return nil
 			}
 
-			if lineNumBlock >= blockSize {
-				blockSize = randBlockSize(cfg)
-				lineNumBlock = 0
-				time.Sleep(delay)
-				continue
-			}
-
 			lineNum++
-			lineNumBlock++
 
 			line := ungzip.Bytes()
 			if ungzip.Err() != nil {
