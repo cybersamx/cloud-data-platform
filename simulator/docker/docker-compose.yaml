@@ -7,7 +7,7 @@ services:
     ports:
       - '5433:5432'
     environment:
-      POSTGRES_USER: pguser
+      POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: db
     healthcheck:
@@ -21,9 +21,7 @@ services:
     container_name: simulator
     environment:
       # Since postgres and simulator are in the same network, we use host=postgres port=5432.
-      DS_DSN: 'host=postgres port=5432 user=pguser password=password dbname=db sslmode=disable'
-      AWS_ACCESS_KEY_ID: 'XXX'
-      AWS_SECRET_ACCESS_KEY: 'YYY'
+      DS_CONN_DSN: 'host=postgres port=5432 user=postgres password=password dbname=db sslmode=disable'
     depends_on:
       postgres:
         condition: service_healthy

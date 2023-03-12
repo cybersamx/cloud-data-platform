@@ -1,8 +1,58 @@
-bucket: snowflake-workshop-lab
-region: us-east-1
-dsn: 'host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable'
-trace: false
-files-load: 5
-rows-load: 10
-next-load-delay: 15s
-workers: 2
+conn:
+  bucket: snowflake-workshop-lab
+  region: us-east-1
+  dsn: 'host=localhost port=5433 user=postgres password=password dbname=db sslmode=disable'
+  trace: false
+tables:
+  - name: trips
+    source:
+      prefix: citibike-trips
+      type: csv
+      has-header: false
+      is-gzip: true
+      files-extract: 5
+      rows-extract: 10
+      next-extract-delay: 15s
+      workers: 2
+    columns:
+      - name: trip_duration
+        datatype: VARCHAR(64)
+      - name: start_time
+        datatype: VARCHAR(32)
+      - name: stop_time
+        datatype: VARCHAR(32)
+      - name: start_station_id
+        datatype: VARCHAR(16)
+      - name: start_station_name
+        datatype: VARCHAR(256)
+      - name: start_station_latitude
+        datatype: VARCHAR(16)
+      - name: start_station_longitude
+        datatype: VARCHAR(16)
+      - name: end_station_id
+        datatype: VARCHAR(16)
+      - name: end_station_name
+        datatype: VARCHAR(256)
+      - name: end_station_latitude
+        datatype: VARCHAR(16)
+      - name: end_station_longitude
+        datatype: VARCHAR(16)
+      - name: bike_id
+        datatype: VARCHAR(32)
+      - name: membership_type
+        datatype: VARCHAR(32)
+      - name: usertype
+        datatype: VARCHAR(32)
+      - name: birth_year
+        datatype: VARCHAR(16)
+      - name: gender
+        datatype: VARCHAR(16)
+  - name: riders
+    source:
+      prefix: citibike-trips-json
+      type: json
+      is-gzip: true
+      files-extract: 6
+      rows-extract: 20
+      next-extract-delay: 15s
+      workers: 2

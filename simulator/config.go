@@ -5,15 +5,35 @@ import (
 )
 
 type config struct {
-	Bucket        string        `mapstructure:"bucket"`
-	Region        string        `mapstructure:"region"`
-	DSN           string        `mapstructure:"dsn"`
-	Trace         bool          `mapstructure:"trace"`
-	Prefix        string        `mapstructure:"-"`
-	TripsFile     string        `mapstructure:"trips-file"`
-	RidersFile    string        `mapstructure:"riders-file"`
-	FilesLoad     int           `mapstructure:"files-load"`
-	RowsLoad      int           `mapstructure:"rows-load"`
-	NextLoadDelay time.Duration `mapstructure:"next-load-delay"`
-	Workers       int           `mapstructure:"workers"`
+	Conn   connConfig    `mapstructure:"conn"`
+	Tables []tableConfig `mapstructure:"tables"`
+}
+
+type connConfig struct {
+	Bucket string `mapstructure:"bucket"`
+	Region string `mapstructure:"region"`
+	DSN    string `mapstructure:"dsn"`
+	Trace  bool   `mapstructure:"trace"`
+}
+
+type tableConfig struct {
+	Name    string         `mapstructure:"name"`
+	Source  sourceConfig   `mapstructure:"source"`
+	Columns []columnConfig `mapstructure:"columns"`
+}
+
+type sourceConfig struct {
+	Prefix           string        `mapstructure:"prefix"`
+	Type             string        `mapstructure:"type"`
+	HasHeader        bool          `mapstructure:"has-header"`
+	IsGZip           bool          `mapstructure:"is-gzip"`
+	FilesExtract     int           `mapstructure:"files-extract"`
+	RowsExtract      int           `mapstructure:"rows-extract"`
+	NextExtractDelay time.Duration `mapstructure:"next-extract-delay"`
+	Workers          int           `mapstructure:"workers"`
+}
+
+type columnConfig struct {
+	Name     string `mapstructure:"name"`
+	DataType string `mapstructure:"datatype"`
 }

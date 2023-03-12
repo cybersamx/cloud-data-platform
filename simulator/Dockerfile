@@ -36,6 +36,7 @@ RUN apk add --no-cache \
 WORKDIR /go/bin
 USER nobody:nobody
 COPY --from=build /go/src/bin/simulator ./
+COPY --from=build /go/src/config.yaml ./
 
 # Execute
 ENTRYPOINT ["/sbin/tini", "--"]

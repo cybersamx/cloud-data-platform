@@ -1,11 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -16,16 +16,10 @@ const (
 	appname   = "simulator"
 	envPrefix = "DS"
 
-	bucket        = "snowflake-workshop-lab"
-	region        = "us-east-1"
-	dsn           = "host=localhost port=5433 user=pguser password=password dbname=db sslmode=disable"
-	trace         = false
-	tripsPrefix   = "citibike-trips"
-	ridersPrefix  = "citibike-trips-json"
-	filesLoad     = 14
-	rowsLoad      = 50
-	nextLoadDelay = 5 * time.Minute
-	workers       = 2
+	bucket = "snowflake-workshop-lab"
+	region = "us-east-1"
+	dsn    = "host=localhost port=5433 user=postgres password=password dbname=db sslmode=disable"
+	trace  = false
 )
 
 func checkErr(err error) {
@@ -37,7 +31,7 @@ func checkErr(err error) {
 
 func newLogger(cfg config) *logrus.Logger {
 	logLevel := logrus.InfoLevel
-	if cfg.Trace {
+	if cfg.Conn.Trace {
 		logLevel = logrus.TraceLevel
 	}
 
@@ -63,12 +57,12 @@ func rootCommand() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(serveCommand())
+	cmd.AddCommand(startCommand())
 
 	return &cmd
 }
 
-func serveCommand() *cobra.Command {
+func startCommand() *cobra.Command {
 	cfg := config{}
 
 	// Sub command: start.
@@ -79,30 +73,38 @@ func serveCommand() *cobra.Command {
 			logger := newLogger(cfg)
 
 			// Database.
-			db, err := connectDB(cfg.DSN)
+			db, err := connectDB(cfg.Conn.DSN)
 			if err != nil {
 				return err
 			}
 
-			if err := initDB(db); err != nil {
+			if err := initDB(db, cfg); err != nil {
 				return err
 			}
 
 			// List and download objects from S3.
 			var wg sync.WaitGroup
 
-			prefixes := []string{tripsPrefix, ridersPrefix}
-			for _, prefix := range prefixes {
-				cfg.Prefix = prefix
-
+			for _, tableCfg := range cfg.Tables {
 				wg.Add(1)
-				go func(cfg config) {
+
+				go func(connCfg connConfig, tableCfg tableConfig) {
 					defer wg.Done()
 
-					if err := listS3Bucket(cfg, db, logger, downloadTripData); err != nil {
+					var handler s3ParseObjectFunc
+					switch tableCfg.Source.Type {
+					case "csv":
+						handler = parseCSV
+					case "json":
+						handler = parseJSON
+					default:
+						panic(errors.New("missing or invalid table source type"))
+					}
+
+					if err := listS3Bucket(db, logger, connCfg, tableCfg, handler); err != nil {
 						logger.WithError(err)
 					}
-				}(cfg)
+				}(cfg.Conn, tableCfg)
 			}
 
 			wg.Wait()
@@ -123,16 +125,12 @@ func serveCommand() *cobra.Command {
 	v.SetConfigName("config")
 	v.AddConfigPath(".")
 
-	// Flags.
+	// Flags - the tables field is only set by the config file.
 	flags := cmd.Flags()
-	flags.String("bucket", bucket, "The bucket containing the data files.")
-	flags.String("region", region, "The AWS Region associated with the bucket.")
-	flags.String("dsn", dsn, "DSN of the database to which the data loads.")
-	flags.Bool("trace", trace, "Enable tracing if true.")
-	flags.Int("files-load", filesLoad, "Number of data files to load.")
-	flags.Int("rows-load", rowsLoad, "Number of rows to load.")
-	flags.Duration("next-load-delay", nextLoadDelay, "The delay between loads.")
-	flags.Int("workers", workers, "Number of concurrent workers for the data loading.")
+	flags.String("conn.bucket", bucket, "The bucket containing the data files.")
+	flags.String("conn.region", region, "The AWS Region associated with the bucket.")
+	flags.String("conn.dsn", dsn, "DSN of the database to which the data loads.")
+	flags.Bool("conn.trace", trace, "Enable tracing if true.")
 
 	err := v.BindPFlags(flags)
 	checkErr(err)

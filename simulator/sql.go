@@ -2,20 +2,14 @@ package main
 
 import (
 	"database/sql"
-	"embed"
+	"errors"
+	"fmt"
 	"log"
-	"path/filepath"
+	"strings"
 
 	"github.com/Masterminds/squirrel"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
-
-const (
-	dirMigrations = "migrations"
-)
-
-//go:embed migrations/*.sql
-var initSQLDir embed.FS
 
 func stmtBuilder() squirrel.StatementBuilderType {
 	return squirrel.StatementBuilder.PlaceholderFormat(squirrel.Dollar)
@@ -36,24 +30,25 @@ func connectDB(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-func initDB(db *sql.DB) error {
-	log.Println("Running migrations.")
+func initDB(db *sql.DB, cfg config) error {
+	for _, table := range cfg.Tables {
+		var createStmt string
 
-	files, err := initSQLDir.ReadDir(dirMigrations)
-	if err != nil {
-		return err
-	}
+		switch table.Source.Type {
+		case "csv":
+			var colDefs []string
+			for _, column := range table.Columns {
+				colDefs = append(colDefs, fmt.Sprintf("%s %s NULL", column.Name, column.DataType))
+			}
 
-	for _, file := range files {
-		filename := filepath.Join(dirMigrations, file.Name())
-		log.Printf("Migration: Running %s.", filename)
-
-		buf, err := initSQLDir.ReadFile(filename)
-		if err != nil {
-			return err
+			createStmt = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ( %s )", table.Name, strings.Join(colDefs, ","))
+		case "json":
+			createStmt = fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s ( json TEXT )", table.Name)
+		default:
+			return errors.New("missing or invalid table source type")
 		}
 
-		_, err = db.Exec(string(buf))
+		_, err := db.Exec(createStmt)
 		if err != nil {
 			return err
 		}

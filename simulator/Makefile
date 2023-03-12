@@ -21,7 +21,8 @@ all: build
 .PHONY: copy
 copy:
 	@-echo "$(BLUE)Copy config file.$(RESET)"
-	cp config.yaml $(PROJECT_BIN)/$(PROJECT)
+	@-mkdir -p $(PROJECT_BIN)
+	cp config.yaml $(PROJECT_BIN)
 
 ###@ build: Build the data simulator
 
