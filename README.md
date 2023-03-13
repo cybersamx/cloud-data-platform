@@ -30,6 +30,7 @@ The following tools are used in this project:
 | Data unit test framework/runner | [Great Expectations (GX)](https://github.com/great-expectations/great_expectations) | 0.15    |
 | Environment provisioning        | [Terraform](https://github.com/hashicorp/terraform)                                 | 1.3     |
 | CI/CD                           | [Github Actions](https://github.com/features/actions)                               | n/a     |
+| Python (dbt prerequisite)       | [Python](https://www.python.org/)                                                   | 3.7     |
 
 ## Setup
 

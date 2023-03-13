@@ -1,0 +1,12 @@
+cdp:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: postgres
+      password: password
+      port: 5433
+      dbname: db
+      schema: public
+      threads: 4
