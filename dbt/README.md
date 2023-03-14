@@ -50,13 +50,14 @@ Here are the instructions for installing dbt using pip since it's the most unive
    cp profiles-example.yaml ~/.dbt/profiles.yml
    ```
 
-1. Spin up the postgres database
+1. Copy the `.env-example` to `.env`, which contains sensitive configuration values. Edit the configuration values in `.env`.
 
    ```shell
-   cd ../simulator
-   make docker-build
-   make docker-up
+   cp .env-example .env
+   vi .env
    ```
+
+1. Source the .env to export the environment variables so that the sensitive configurations can be injected into the dbt profile.
 
 1. We can use the `debug` command in dbt to check if our profiles settings are valid by actually connecting to the database.
 
@@ -67,3 +68,5 @@ Here are the instructions for installing dbt using pip since it's the most unive
 ## References
 
 * [DBT Installation Overview](https://docs.getdbt.com/docs/get-started/installation)
+* [DBT-Postgres Setup](https://docs.getdbt.com/reference/warehouse-setups/postgres-setup)
+* [DBT-Snowflake Setup](https://docs.getdbt.com/reference/warehouse-setups/snowflake-setup)

@@ -1,7 +1,7 @@
 cdp:
-  target: dev
+  target: snowflake-dev
   outputs:
-    dev:
+    postgres-dev:
       type: postgres
       host: localhost
       user: postgres
@@ -10,3 +10,18 @@ cdp:
       dbname: db
       schema: public
       threads: 4
+    snowflake-dev:
+      type: snowflake
+      host: "{{ env_var('DBT_HOST') }}"
+      account: "{{ env_var('DBT_ACCOUNT') }}"
+      user: dbt
+      password: "{{ env_var('DBT_ENV_SECRET_PASSWORD') }}"
+      database: cdp_dev
+      warehouse: transforming
+      schema: raw
+      role: transformer
+      threads: 4
+      connect_retries: 3
+      connect_timeout: 15
+      retry_on_database_errors: False
+      retry_all: False
