@@ -1,4 +1,4 @@
-cdp:
+citibike:
   target: snowflake-dev
   outputs:
     postgres-dev:
@@ -19,7 +19,7 @@ cdp:
       database: cdp_dev
       warehouse: transforming
       schema: raw
-      role: transformer
+      role: sysadmin
       threads: 4
       connect_retries: 3
       connect_timeout: 15

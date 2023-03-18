@@ -20,7 +20,7 @@ Here are the instructions for installing dbt using pip since it's the most unive
 1. Install `dbt-snowflake`. This will also install dbt, the plug-ins, and all the dependencies we need.
 
    ```shell
-   pip install dbt-snowflake dbt-postgres
+   pip install --user dbt-snowflake dbt-postgres
    ```
    
 1. Verify that dbt has been successfully installed.
@@ -47,7 +47,7 @@ Here are the instructions for installing dbt using pip since it's the most unive
    ```shell
    mkdir -p ~/.dbt
    cd ~/.dbt
-   cp profiles-example.yaml ~/.dbt/profiles.yml
+   cp profiles-example.yml ~/.dbt/profiles.yml
    ```
 
 1. Copy the `.env-example` to `.env`, which contains sensitive configuration values. Edit the configuration values in `.env`.
