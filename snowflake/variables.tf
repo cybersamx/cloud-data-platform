@@ -62,21 +62,21 @@ variable "users" {
   }))
 
   default = {
-    "AIRBYTE" = {
+    AIRBYTE = {
       name              = "AIRBYTE"
       comment           = "The service account for airbyte"
       default_role      = "LOADER"
       default_namespace = "CDP_DEV.RAW"
       default_warehouse = "LOADING"
     }
-    "DBT" = {
+    DBT = {
       name              = "DBT"
       comment           = "The service account for dbt"
       default_role      = "TRANSFORMER"
       default_namespace = "CDP_DEV.RAW"
       default_warehouse = "TRANSFORMING"
     }
-    "PYTHON" = {
+    PYTHON = {
       name              = "PYTHON"
       comment           = "Ad-hoc python script for analytics"
       default_role      = "REPORTER"
@@ -95,15 +95,15 @@ variable "warehouses" {
   }))
 
   default = {
-    "LOADING" = {
+    LOADING = {
       name    = "LOADING"
       comment = "Runs the loading of raw data in the raw schema."
     }
-    "TRANSFORMING" = {
+    TRANSFORMING = {
       name    = "TRANSFORMING"
       comment = "Runs the transformation of data."
     }
-    "REPORTING" = {
+    REPORTING = {
       name    = "REPORTING"
       comment = "Runs the queries of analytical and reporting tools."
     }
@@ -123,98 +123,36 @@ variable "schemas" {
       name  = string
       roles = list(string)
     }))
-    tables = map(object({
-      name = string
-      privileges = map(object({
-        name  = string
-        roles = list(string)
-      }))
-      columns = map(object({
-        type     = string
-        nullable = optional(bool, true)
-      }))
+    table_privileges = map(object({
+      name  = string
+      roles = list(string)
     }))
   }))
 
   default = {
-    "RAW" = {
+    RAW = {
       name    = "RAW"
       comment = "Dump of raw data extracted from data sources"
 
       privileges = {
-        "USAGE" = {
+        USAGE = {
           name  = "USAGE"
           roles = ["LOADER", "TRANSFORMER"]
         }
-        "MODIFY" = {
+        MODIFY = {
           name  = "MODIFY"
           roles = ["LOADER"]
         }
       }
 
-      tables = {
-        "TRIPS" = {
-          name = "TRIPS"
-          privileges = {
-            "SELECT" = {
-              name  = "SELECT"
-              roles = ["LOADER", "TRANSFORMER"]
-            }
-            "INSERT" = {
-              name  = "INSERT"
-              roles = ["TRANSFORMER"]
-            }
-          }
-          columns = {
-            "trip_duration" = {
-              type = "VARCHAR(16777216)"
-            }
-            "start_time" = {
-              type = "VARCHAR(16777216)"
-            }
-            "stop_time" = {
-              type = "VARCHAR(16777216)"
-            }
-            "start_station_id" = {
-              type = "VARCHAR(16777216)"
-            }
-            "start_station_name" = {
-              type = "VARCHAR(16777216)"
-            }
-            "start_station_latitude" = {
-              type = "VARCHAR(16777216)"
-            }
-            "start_station_longitude" = {
-              type = "VARCHAR(16777216)"
-            }
-            "end_station_id" = {
-              type = "VARCHAR(16777216)"
-            }
-            "end_station_name" = {
-              type = "VARCHAR(16777216)"
-            }
-            "end_station_latitude" = {
-              type = "VARCHAR(16777216)"
-            }
-            "end_station_longitude" = {
-              type = "VARCHAR(16777216)"
-            }
-            "bike_id" = {
-              type = "VARCHAR(16777216)"
-            }
-            "membership_type" = {
-              type = "VARCHAR(16777216)"
-            }
-            "usertype" = {
-              type = "VARCHAR(16777216)"
-            }
-            "birth_year" = {
-              type = "VARCHAR(16777216)"
-            }
-            "gender" = {
-              type = "VARCHAR(16777216)"
-            }
-          }
+      table_privileges = {
+        SELECT = {
+          name  = "SELECT"
+          roles = ["LOADER", "TRANSFORMER"]
+        }
+        INSERT = {
+          name  = "INSERT"
+          roles = ["TRANSFORMER"]
         }
       }
     }
@@ -223,79 +161,20 @@ variable "schemas" {
       comment = "Tables and views for analytics and reporting"
 
       privileges = {
-        "MODIFY" = {
+        MODIFY = {
           name  = "MODIFY"
           roles = ["TRANSFORMER"]
         }
       }
 
-      tables = {
-        "TRIPS" = {
-          name = "TRIPS"
-          privileges = {
-            "SELECT" = {
-              name  = "SELECT"
-              roles = ["TRANSFORMER"]
-            }
-            "INSERT" = {
-              name  = "INSERT"
-              roles = ["TRANSFORMER"]
-            }
-          }
-          columns = {
-            "trip_duration" = {
-              #             # For types use capitalized, basic types like NUMBER(38,0) than lowercase, alias types like
-              # integer or text. While NUMBER(38,0) is semantically equivalent to number(38,0), integer or INTEGER,
-              # the current Snowflake provider does an exact case sensitive match of the the string between the
-              # value in the terraform code and state. As a result, INTEGER or number(38,0) will be marked as change.
-              type = "NUMBER(38,0)"
-            }
-            "start_time" = {
-              type = "TIMESTAMP_NTZ(9)"
-            }
-            "stop_time" = {
-              type = "TIMESTAMP_NTZ(9)"
-            }
-            "start_station_id" = {
-              type = "NUMBER(38,0)"
-            }
-            "start_station_name" = {
-              type = "VARCHAR(16777216)"
-            }
-            "start_station_latitude" = {
-              type = "FLOAT"
-            }
-            "start_station_longitude" = {
-              type = "FLOAT"
-            }
-            "end_station_id" = {
-              type = "NUMBER(38,0)"
-            }
-            "end_station_name" = {
-              type = "VARCHAR(16777216)"
-            }
-            "end_station_latitude" = {
-              type = "FLOAT"
-            }
-            "end_station_longitude" = {
-              type = "FLOAT"
-            }
-            "bike_id" = {
-              type = "NUMBER(38,0)"
-            }
-            "membership_type" = {
-              type = "VARCHAR(16777216)"
-            }
-            "usertype" = {
-              type = "VARCHAR(16777216)"
-            }
-            "birth_year" = {
-              type = "NUMBER(38,0)"
-            }
-            "gender" = {
-              type = "NUMBER(38,0)"
-            }
-          }
+      table_privileges = {
+        SELECT = {
+          name  = "SELECT"
+          roles = ["TRANSFORMER"]
+        }
+        INSERT = {
+          name  = "INSERT"
+          roles = ["TRANSFORMER"]
         }
       }
     }

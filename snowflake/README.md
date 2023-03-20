@@ -85,6 +85,28 @@ The instructions were adopted from Snowflake document entitled [Terraform Snowfl
    terraform apply
    ```
 
+## Notes
+
+* Terraform module [snowflake_table](https://registry.terraform.io/providers/Snowflake-Labs/snowflake/latest/docs/resources/table) creates table columns on Snowflake that has double quotes "" wrapped around the column name, which translates to the following SQL command.
+
+  ````snowflake
+  create or replace TABLE CDP_DEV.RAW.TRIPS (
+	  "GENDER" VARCHAR(16777216),
+	  "BIKE_ID" VARCHAR(16777216)
+  );
+  ````
+
+  Rather than the following:
+
+  ```snowflake
+  create or replace TABLE CDP_DEV.RAW.TRIPS (
+	  GENDER VARCHAR(16777216),
+	  BIKE_ID VARCHAR(16777216)
+  );
+  ```
+  
+  The way the terraform module creates the columns means that we must include the quotes in any references to the columns. So for now, we aren't using terraform to create tables. Instead that responsibility will be assigned to airbyte (for raw tables) and dbt (for transformed tables via dbt models).
+
 ## Future Work
 
 * For convenience, we grant `SYSADMIN` to users `DBT` and `AIRBYTE` as our Airbyte operations need elevated privileges above the standard `USAGE` and `MODIFY`. We should not use `SYSADMIN` and assign specific privileges to the users instead.

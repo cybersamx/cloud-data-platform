@@ -15,13 +15,3 @@ output "schema_grant_roles" {
     }
   }
 }
-
-output "tables" {
-  value = [
-    for v in snowflake_table.tables : {
-      id     = v.id
-      schema = v.schema
-      name   = v.name
-    }
-  ]
-}

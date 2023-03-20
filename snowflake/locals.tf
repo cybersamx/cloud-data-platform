@@ -25,33 +25,16 @@ locals {
     ]
   ]))
 
-  # Flatten the nested data structure to tables.
-  tables = distinct(flatten([
-    for database in var.databases : [
-      for schema in var.schemas : [
-        for table in schema.tables : {
-          database = database
-          schema   = schema.name
-          name     = table.name
-          columns  = table.columns
-        }
-      ]
-    ]
-  ]))
-
   # Flatten the nested data structure to table privileges.
   table_privileges = distinct(flatten([
     for database in var.databases : [
       for schema in var.schemas : [
-        for table in schema.tables : [
-          for privilege in table.privileges : {
-            database  = database
-            schema    = schema.name
-            table     = table.name
-            privilege = privilege.name
-            roles     = privilege.roles
-          }
-        ]
+        for table_privilege in schema.table_privileges : {
+          database  = database
+          schema    = schema.name
+          privilege = table_privilege.name
+          roles     = table_privilege.roles
+        }
       ]
     ]
   ]))

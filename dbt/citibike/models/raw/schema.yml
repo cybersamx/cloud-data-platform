@@ -1,0 +1,38 @@
+version: 2
+
+models:
+  - name: trips
+    description: "The Citibike trips"
+    columns:
+      - name: bike_id
+        description: "The bike id"
+      - name: birth_year
+        description: "The birth year of the rider"
+      - name: end_station_id
+        description: "The station id where trip ended"
+      - name: end_station_latitude
+        description: "The latitude of the station where the trip ended"
+      - name: end_station_longitude
+        description: "The longitude of the station where the trip ended"
+      - name: end_station_name
+        description: "The name of the station where the trip ended"
+      - name: gender
+        description: "The gender of the rider"
+      - name: membership_type
+        description: "The membership of the rider"
+      - name: start_station_id
+        description: "The station id where trip started"
+      - name: start_station_latitude
+        description: "The latitude of the station where the trip started"
+      - name: start_station_longitude
+        description: "The longitude of the station where the trip started"
+      - name: start_station_name
+        description: "The name of the station where the trip started"
+      - name: start_time
+        description: "The time when the trip started"
+      - name: stop_time
+        description: "The time when the trip ended"
+      - name: trip_duration
+        description: "The duration of the trip"
+      - name: usertype
+        description: "The user type"
