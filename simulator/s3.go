@@ -35,7 +35,7 @@ func toAnySlice[T any](src []T) []any {
 	return target
 }
 
-func isS3Dir(obj *s3.Object) bool {
+func isPrefix(obj *s3.Object) bool {
 	parts := strings.Split(*obj.Key, "/")
 	if len(parts) == 0 {
 		return false
@@ -50,8 +50,8 @@ func normalizeSize(size int64) (float64, string) {
 	fsize := float64(size)
 
 	step := 0
-	for fsize < 0.0 || fsize > 1000.0 {
-		fsize /= 1024.0
+	for fsize < 0.0 || fsize >= 1000.0 {
+		fsize /= 1000.0
 		step++
 	}
 
@@ -59,6 +59,10 @@ func normalizeSize(size int64) (float64, string) {
 }
 
 func listS3Bucket(db *sql.DB, logger *logrus.Logger, connCfg connConfig, tableCfg tableConfig, handler s3ParseObjectFunc) error {
+	if handler == nil {
+		return errors.New("listS3Bucket function requires a handler s3ParseObjectFunc")
+	}
+
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(connCfg.Region),
 		Credentials: credentials.AnonymousCredentials,
@@ -77,6 +81,7 @@ func listS3Bucket(db *sql.DB, logger *logrus.Logger, connCfg connConfig, tableCf
 		return err
 	}
 
+	numPrefixes := 0
 	size := int64(0)
 	count := 0
 	for _, obj := range objs.Contents {
@@ -85,10 +90,8 @@ func listS3Bucket(db *sql.DB, logger *logrus.Logger, connCfg connConfig, tableCf
 	}
 
 	tsize, tunit := normalizeSize(size)
-	logger.WithFields(logrus.Fields{"#files": count, "size": fmt.Sprintf("%.3f %s", tsize, tunit)}).
+	logger.WithFields(logrus.Fields{"#files": count, "size": fmt.Sprintf("%.3f%s", tsize, tunit)}).
 		Infof("Stats for s3://%s/%s", connCfg.Bucket, tableCfg.Source.Prefix)
-
-	numDir := 0
 
 	// For each file, spawn off a worker to process and load the file.
 	var wg sync.WaitGroup
@@ -97,24 +100,13 @@ func listS3Bucket(db *sql.DB, logger *logrus.Logger, connCfg connConfig, tableCf
 	workersChan := make(chan struct{}, tableCfg.Source.Workers)
 
 	for i, obj := range objs.Contents {
-		if i-numDir >= tableCfg.Source.FilesExtract {
+		if i-numPrefixes >= tableCfg.Source.FilesExtract {
 			break
 		}
 
-		if isS3Dir(obj) {
-			numDir++
-			continue
-		}
-
-		// If no handler is passed, we just list the bucket content.
-		if handler == nil {
-			if i == 0 {
-				logger.Infof("List of s3://%s/%s:", connCfg.Bucket, tableCfg.Source.Prefix)
-			}
-			fsize, funit := normalizeSize(*obj.Size)
-			logger.WithFields(logrus.Fields{"size": fmt.Sprintf("%.3f %s", fsize, funit)}).
-				Infof("File %s:", *obj.Key)
-
+		// Non-recursive, just get only objects (files) at only one level.
+		if isPrefix(obj) {
+			numPrefixes++
 			continue
 		}
 
