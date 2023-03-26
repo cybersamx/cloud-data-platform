@@ -6,9 +6,10 @@ conn:
 tables:
   - name: trips
     source:
-      prefix: citibike-trips
+      prefix: citibike-trips-csv/
       type: csv
       has-header: false
+      recursive: false
       is-gzip: true
       files-extract: 5
       rows-extract: 10
@@ -49,10 +50,11 @@ tables:
         datatype: VARCHAR(16)
   - name: riders
     source:
-      prefix: citibike-trips-json
+      prefix: citibike-trips-json/
       type: json
+      recursive: true
       is-gzip: true
-      files-extract: 6
+      files-extract: 7
       rows-extract: 20
       next-extract-delay: 15s
       workers: 2

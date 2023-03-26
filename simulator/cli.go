@@ -101,8 +101,15 @@ func startCommand() *cobra.Command {
 						panic(errors.New("missing or invalid table source type"))
 					}
 
-					if err := listS3Bucket(db, logger, connCfg, tableCfg, handler); err != nil {
+					sc, err := newS3Connector(db, logger, cfg.Conn)
+					if err != nil {
 						logger.WithError(err)
+						return
+					}
+
+					if err := sc.listS3Bucket(tableCfg, handler); err != nil {
+						logger.WithError(err)
+						return
 					}
 				}(cfg.Conn, tableCfg)
 			}

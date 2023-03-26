@@ -26,6 +26,7 @@ type sourceConfig struct {
 	Prefix           string        `mapstructure:"prefix"`
 	Type             string        `mapstructure:"type"`
 	HasHeader        bool          `mapstructure:"has-header"`
+	Recursive        bool          `mapstructure:"recursive"`
 	IsGZip           bool          `mapstructure:"is-gzip"`
 	FilesExtract     int           `mapstructure:"files-extract"`
 	RowsExtract      int           `mapstructure:"rows-extract"`
