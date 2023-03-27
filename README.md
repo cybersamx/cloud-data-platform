@@ -4,6 +4,10 @@ As enterprises adopt Cloud-native data warehouses, like Snowflake and BigQuery, 
 
 This project was set up to demonstrate how we can use modern software engineering practices and tools to supplement a set of modern, open-source data tech stack to build and scale our Cloud-native data warehouse.
 
+> **Notes**
+> 
+> **This project is still a work-in-progress**, there's still work left for dbt transformation.
+
 ## Architecture
 
 ![Project Architecture](images/cdp-architecture.jpg)

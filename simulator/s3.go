@@ -317,9 +317,7 @@ func (sc *s3Connector) downloadS3Object(obj *s3.Object, bucket string, tableCfg 
 
 	downloader := s3manager.NewDownloader(sc.sess)
 	downloader.Concurrency = 3
-
-	// This isn't optimal. Reuses the buffer if it's big enough to load the entire file,
-	// otherwise creates a new buffer.
+	
 	buf := make([]byte, *obj.Size)
 
 	// Download the file.
