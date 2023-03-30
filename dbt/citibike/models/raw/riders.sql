@@ -1,3 +1,3 @@
 {{ config(materialized='table') }}
 
-select json from cdp_dev.raw.riders
+select val from cdp_dev.raw.riders

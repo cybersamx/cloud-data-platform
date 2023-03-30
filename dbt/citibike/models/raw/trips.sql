@@ -1,13 +1,21 @@
 -- Override the config set in dbt_project.yml.
--- {{ config(materialized='table') }}
+{{ config(materialized='table') }}
 
--- Make a view of the raw data with data types.
-
-with trips as (
-  select * from {{ ref('raw_trips') }}
-)
-
-select * from trips
-
--- Uncomment the line below to remove records with null `id` values
--- where id is not null
+select
+  bike_id,
+  birth_year,
+  end_station_id,
+  end_station_latitude,
+  end_station_longitude,
+  end_station_name,
+  gender,
+  membership_type,
+  start_station_id,
+  start_station_latitude,
+  start_station_longitude,
+  start_station_name,
+  start_time,
+  stop_time,
+  trip_duration,
+  usertype
+from cdp_dev.raw.trips
