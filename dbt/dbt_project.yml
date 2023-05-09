@@ -1,0 +1,21 @@
+name: citibike
+version: 1.0.0
+config-version: 2
+
+profile: citibike
+
+model-paths:
+  - models
+seed-paths:
+  - seeds
+macro-paths:
+  - macros
+
+target-path: target
+clean-targets:
+  - target
+  - logs
+
+models:
+  citibike:
+    +materialized: view

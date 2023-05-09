@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: citibike
+    database: cdp_dev
+    schema: raw
+    tables:
+      - name: trips
+      - name: riders

@@ -1,7 +1,7 @@
 citibike:
-  target: snowflake-dev
+  target: snowflake_dev
   outputs:
-    postgres-dev:
+    postgres_dev:
       type: postgres
       host: localhost
       user: postgres
@@ -10,7 +10,7 @@ citibike:
       dbname: db
       schema: public
       threads: 4
-    snowflake-dev:
+    snowflake_dev:
       type: snowflake
       host: "{{ env_var('DBT_HOST') }}"
       account: "{{ env_var('DBT_ACCOUNT') }}"

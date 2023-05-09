@@ -18,6 +18,10 @@ max_line_length = 120
 indent_style = tab
 indent_size = 4
 
+### SQL ###
+[*.sql]
+indent_size = 4
+
 ### Python ###
 [*.py]
 indent_size = 4

@@ -1,0 +1,8 @@
+version: 2
+
+models:
+  - name: usertype_counts
+    description: 'Report of trips break down by user types'
+    columns:
+      - name: usertype
+      - name: count

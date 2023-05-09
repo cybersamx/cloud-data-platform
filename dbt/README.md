@@ -47,7 +47,6 @@ Here are the instructions for installing dbt using pip since it's the most unive
    ```shell
    mkdir -p ~/.dbt
    cd ~/.dbt
-   cp profiles-example.yml ~/.dbt/profiles.yml
    ```
 
 1. Copy the `.env-example` to `.env`, which contains sensitive configuration values. Edit the configuration values in `.env`.
@@ -59,10 +58,20 @@ Here are the instructions for installing dbt using pip since it's the most unive
 
 1. Source the .env to export the environment variables so that the sensitive configurations can be injected into the dbt profile.
 
+   ```shell
+   export $(cat .env | xargs)
+   ```
+
 1. We can use the `debug` command in dbt to check if our profiles settings are valid by actually connecting to the database.
 
    ```shell
    dbt debug
+   ```
+
+1. Run dbt to build the views/tables needed for data visualization.
+
+   ```shell
+   dbt build
    ```
 
 ## References
